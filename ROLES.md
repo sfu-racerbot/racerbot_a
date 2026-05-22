@@ -4,7 +4,7 @@
 
 - [Milad Abdi](https://github.com/Milad244)
 
-Reachable on Discord @milad4515 or by email at mka321@sfu.ca (please avoid email if possible). Active most of the day and almost always available from 8 - 9:30 p.m.
+Reachable on Discord @milad4515 or by email at mka321@sfu.ca (please avoid email if possible). Active most of the day and almost always available from 8 - 9 p.m.
 
 If you ever have any concerns or questions, please feel free to reach out.
 
