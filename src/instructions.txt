@@ -1,8 +1,0 @@
-1. Create an ftg package (for our best ftg)
-2. Create a disparity extender package (for our best disparity extender)
-3. Create a reactive package (for our own reactive algo)
-4. Create a utility package (for our ease of development)
-5. Create a RESEARCH.md (inside docs)
-6. Create a TODO.md (inside docs)
-7. Write a skeleton for TODO.md
-8. Delete this file
