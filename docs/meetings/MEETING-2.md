@@ -15,7 +15,7 @@
 - Arianna Suen: Finished Lecture 3, Lab 1.
 - Aston Kwan-Lai: Finished Lecture 4, Lab 1.
 - Athanasius Liu: Finished Lecture 4, Lab 2.
-- Keyla Wijesinghe: Finished Lecture 4, Lab 2.
+- Keyla Wijesinghe: Finished Lecture 4, Lab 1.
 - Rohan Jassi: N/A.
 - Maryam Mohsen: Finished Lecture 2, Lab 2.
 - Qusai Sherif: Finished Lecture 4, Lab 2.
