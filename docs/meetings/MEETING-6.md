@@ -17,7 +17,7 @@
 - Aston Kwan-Lai: Finished Lecture 5, Lab 1.
 - Athanasius Liu: Finished Lecture 5, Lab 3.
 - Keyla Wijesinghe: Finished Lecture 5, Lab 1.
-- Maryam Mohsen: Finished Lecture 5, Lab 3.
+- Maryam Mohsen: Finished Lecture 5, Lab 2.
 - Qusai Sherif: Finished Lecture 4, Lab 4.
 - Nathan Jacobson: Finished Lecture 5, Lab 4.
 - Rafael Feng: Finished Lecture 2, Lab 1.

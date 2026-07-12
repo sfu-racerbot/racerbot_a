@@ -27,7 +27,7 @@
 - Keyla Wijesinghe: Finished Lecture 5, Lab 1. (Behind)
     - Active Software Chat [x]
     - Active Contributions [x]
-- Maryam Mohsen: Finished Lecture 5, Lab 3.
+- Maryam Mohsen: Finished Lecture 5, Lab 2.
     - Active Software Chat []
     - Active Contributions [x]
 - Qusai Sherif: Finished Lecture 4, Lab 4.
