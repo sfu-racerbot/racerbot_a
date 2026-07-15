@@ -3,6 +3,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include <vector>
+#include <cmath>
 
 class GapFinderNode : public rclcpp::Node
 {
@@ -10,8 +11,13 @@ public:
     GapFinderNode();
 
 private:
-    rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_scan_sub_;
+    double max_lidar_range_;
+    double car_width_;
+    double bubble_radius_;
+    double disparity_threshold_;
+    double min_angle_;
+    double max_angle_;
 
     /// @brief Callback invoked each time the lidar completes a new scan.
     /// @param scan_msg Shared pointer to the incoming LaserScan message.
