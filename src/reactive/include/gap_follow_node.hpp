@@ -9,5 +9,5 @@ public:
     GapFollowNode();
 
 private:
-    
+    rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
 };
