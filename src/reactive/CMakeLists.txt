@@ -12,6 +12,9 @@ find_package(sensor_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 
+# Include directories into build
+include_directories(include)
+
 # Add gap finder exectuable
 add_executable(gap_finder_node src/gap_finder_node.cpp)
 ament_target_dependencies(gap_finder_node rclcpp ackermann_msgs sensor_msgs nav_msgs)

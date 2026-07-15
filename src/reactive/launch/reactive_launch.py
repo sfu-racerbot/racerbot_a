@@ -15,8 +15,8 @@ def generate_launch_description():
         # Launch gap_follower_node
         Node(
             package='reactive',
-            executable='gap_follower_node',
-            name='gap_follower_node',
+            executable='gap_follow_node',
+            name='gap_follow_node',
             output='screen',
         )
     ])
