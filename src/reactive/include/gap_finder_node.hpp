@@ -16,8 +16,7 @@ private:
     double car_width_;
     double bubble_radius_;
     double disparity_threshold_;
-    double min_angle_;
-    double max_angle_;
+    double fov_half_angle_;
 
     /// @brief Callback invoked each time the lidar completes a new scan.
     /// @param scan_msg Shared pointer to the incoming LaserScan message.
