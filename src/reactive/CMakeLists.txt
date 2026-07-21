@@ -11,18 +11,29 @@ find_package(ackermann_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 # Include directories into build
 include_directories(include)
 
+# Add gap message
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Gap.msg"
+)
+
+# Needed to reference the generated headers/typesupport within this same package
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
 # Add gap finder exectuable
 add_executable(gap_finder_node src/gap_finder_node.cpp)
 ament_target_dependencies(gap_finder_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
+target_link_libraries(gap_finder_node "${cpp_typesupport_target}")
 install(TARGETS gap_finder_node DESTINATION lib/${PROJECT_NAME})
 
 # Add gap follower exectuable
 add_executable(gap_follow_node src/gap_follow_node.cpp)
 ament_target_dependencies(gap_follow_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
+target_link_libraries(gap_follow_node "${cpp_typesupport_target}")
 install(TARGETS gap_follow_node DESTINATION lib/${PROJECT_NAME})
 
 # add launch
