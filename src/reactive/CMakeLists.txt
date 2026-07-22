@@ -24,17 +24,26 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 # Needed to reference the generated headers/typesupport within this same package
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
-# Add gap finder exectuable
+# Add gap finder executable
 add_executable(gap_finder_node src/gap_finder_node.cpp)
 ament_target_dependencies(gap_finder_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
 target_link_libraries(gap_finder_node "${cpp_typesupport_target}")
-install(TARGETS gap_finder_node DESTINATION lib/${PROJECT_NAME})
 
-# Add gap follower exectuable
+# Add gap follower executable
 add_executable(gap_follow_node src/gap_follow_node.cpp)
 ament_target_dependencies(gap_follow_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
 target_link_libraries(gap_follow_node "${cpp_typesupport_target}")
-install(TARGETS gap_follow_node DESTINATION lib/${PROJECT_NAME})
+
+# Safety node executable
+add_executable(safety_node src/safety_node.cpp)
+ament_target_dependencies(safety_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
+
+# Install executables
+install(TARGETS
+  gap_finder_node
+  gap_follow_node
+  safety_node
+  DESTINATION lib/${PROJECT_NAME})
 
 # add launch
 install (
