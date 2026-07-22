@@ -9,14 +9,14 @@ GapFinderNode::GapFinderNode() : Node("gap_finder_node")
     this->declare_parameter("max_lidar_range", 10.0);
     this->declare_parameter("car_width_extended", 0.35);
     this->declare_parameter("disparity_threshold", 2.0);
-    this->declare_parameter("fov_half_angle", M_PI/2.0); // 90 degrees
+    this->declare_parameter("fov_half_angle_deg", 90.0);
     this->declare_parameter("minimum_gap_threshold", 1.0);
 
     // Read into member variables
     max_lidar_range_ = this->get_parameter("max_lidar_range").as_double();
     car_width_extended_ = this->get_parameter("car_width_extended").as_double();
     disparity_threshold_ = this->get_parameter("disparity_threshold").as_double();
-    fov_half_angle_ = this->get_parameter("fov_half_angle").as_double();
+    fov_half_angle_ = this->get_parameter("fov_half_angle_deg").as_double() * M_PI / 180.0;
     minimum_gap_threshold_ = this->get_parameter("minimum_gap_threshold").as_double();
     
     laser_scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
