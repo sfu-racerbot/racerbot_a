@@ -14,23 +14,19 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
 void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_msg)
 {
     drive_best_point(gap_msg);
-    
 }
 
 void GapFollowNode::drive_best_point(const reactive::msg::Gap::ConstSharedPtr gap_msg)
 {
-    // Speed depends on target point range
+    float abs_angle = std::abs(gap_msg->target_angle);
     float velocity;
-    float target_range = gap_msg->target_range;
-    if (target_range > 2) velocity = 2;
-    else if (target_range > 1) velocity = 1.5;
-    else if (target_range > 0.5) velocity = 1;
-    else velocity = 0.5;
+    if (abs_angle < 10.0f * M_PI / 180.0f) velocity = 2.0f;
+    else if (abs_angle < 20.0f * M_PI / 180.0f) velocity = 1.5f;
+    else velocity = 0.5f;
 
-    // Publishing to drive
     ackermann_msgs::msg::AckermannDriveStamped drive_msg;
     drive_msg.header.stamp = this->now();
-    drive_msg.drive.steering_angle = gap_msg->target_angle;
+    drive_msg.drive.steering_angle = std::clamp(gap_msg->target_angle, -0.4189f, 0.4189f);
     drive_msg.drive.speed = velocity;
     drive_pub_->publish(drive_msg);
 }
