@@ -1,0 +1,14 @@
+Checks: >
+  -*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  -modernize-use-trailing-return-type,
+  -readability-magic-numbers
+  -cppcoreguidelines-avoid-magic-numbers
+
+WarningsAsErrors: 'bugprone-*,performance-*'
+
+# Quoted regex ensures valid YAML and matches headers inside your package path
+HeaderFilterRegex: '^.*src/racerbot_a/include/.*'

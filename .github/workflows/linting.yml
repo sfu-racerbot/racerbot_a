@@ -1,0 +1,75 @@
+name: Linting
+
+on: [push, pull_request]
+
+jobs:
+  clang-format:
+    runs-on: ubuntu-latest
+    container:
+      image: ros:humble-ros-base
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: src/racerbot_a
+
+      - name: Install clang-format-17
+        run: |
+          apt-get update
+          apt-get install -y wget gnupg lsb-release software-properties-common
+
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          ./llvm.sh 17
+
+          apt-get install -y clang-format-17
+
+      - name: Check formatting
+        run: |
+          cd src/racerbot_a
+          files=$(find . -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.cxx' \))
+
+          if [ -z "$files" ]; then
+            echo "No C/C++ files found to check."
+            exit 0
+          fi
+
+          echo "$files" | xargs clang-format-17 --dry-run --Werror -style=file
+
+  clang-tidy:
+    runs-on: ubuntu-latest
+    container:
+      image: ros:humble-ros-base
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: src/racerbot_a
+
+      - name: Install clang-tidy-17 & dependencies
+        run: |
+          apt-get update
+          apt-get install -y wget gnupg lsb-release software-properties-common
+
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          ./llvm.sh 17
+
+          apt-get install -y clang-tidy-17
+
+          rosdep update
+          rosdep install -i --from-paths src --rosdistro humble -y
+
+      - name: Compile and Run clang-tidy
+        run: |
+          . /opt/ros/humble/setup.bash
+          colcon build --symlink-install --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+          # Explicitly point run-clang-tidy at the 17 binaries
+          run-clang-tidy-17 -clang-tidy-binary=clang-tidy-17 -p build/ '.*src/racerbot_a/.*'
