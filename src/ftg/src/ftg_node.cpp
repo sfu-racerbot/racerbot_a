@@ -1,12 +1,11 @@
 #include "ftg_node.hpp"
 using std::vector;
 
-
 FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node")
 {
     RCLCPP_INFO(this->get_logger(), "Follow the gap node started");
 
-   // ROS2 parameters
+    // ROS2 parameters — tune at launch without recompiling
     this->declare_parameter("max_lidar_range", 10.0);
     this->declare_parameter("fov_half_angle_deg", 90.0);
     this->declare_parameter("car_width", 0.35);
@@ -35,6 +34,7 @@ vector<float> FollowTheGapNode::preprocess_lidar(const sensor_msgs::msg::LaserSc
         ranges[i] = std::min(ranges[i], static_cast<float>(max_lidar_range_));
     }
 
+    // 3-point moving average to reduce noise
     for (size_t i = 1; i < ranges.size() - 1; ++i) {
         ranges[i] = (ranges[i-1] + ranges[i] + ranges[i+1]) / 3.0f;
     }
@@ -45,34 +45,28 @@ vector<float> FollowTheGapNode::preprocess_lidar(const sensor_msgs::msg::LaserSc
 void FollowTheGapNode::draw_safety_bubble(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
     vector<float>& ranges)
 {
-     // Find closest obstacle (ignoring 0 ranges since 0 will already be avoided)
+    // find closest point, skipping zeroed beams from FOV clipping
     bool found_closest = false;
-    size_t closest_index;
-    for (size_t i = 1; i < ranges.size(); ++i) {
-        if (ranges[i] != 0 && !found_closest) {
+    size_t closest_index = 0;
+    for (size_t i = 0; i < ranges.size(); ++i) {
+        if (ranges[i] == 0.0f) continue;
+        if (!found_closest || ranges[i] < ranges[closest_index]) {
+            closest_index = i;
             found_closest = true;
-            closest_index = i;
-        }
-
-        if (found_closest && ranges[i] != 0 && ranges[i] < ranges[closest_index]) {
-            closest_index = i;
         }
     }
 
-    if (!found_closest) return; // handle case where all ranges are 0
+    if (!found_closest) return;
 
-    // Draw safety buble by calculating theta for the arc made by r = closest point with s = car width
-
-    double theta = 2.0 * std::atan2(car_width_ / 2.0, ranges[closest_index]);
-
-    size_t index_increment = (theta / scan_msg->angle_increment) / 2; // Used on each side so divide by 2
+    // exact angular half-width using atan2 — more accurate than small angle approx at close range
+    double theta = 2.0 * std::atan2(car_width_ / 2.0, static_cast<double>(ranges[closest_index]));
+    size_t index_increment = static_cast<size_t>((theta / scan_msg->angle_increment) / 2.0);
 
     size_t start = (closest_index > index_increment) ? closest_index - index_increment : 0;
-
-    size_t end = std::min(closest_index + index_increment, ranges.size());
+    size_t end = std::min(closest_index + index_increment + 1, ranges.size());
 
     for (size_t i = start; i < end; ++i) {
-        ranges[i] = 0;
+        ranges[i] = 0.0f;
     }
 }
 
@@ -80,29 +74,24 @@ vector<std::pair<int, int>> FollowTheGapNode::find_all_gaps(const vector<float>&
 {
     vector<std::pair<int, int>> gaps;
     size_t i = 0;
-    
+
     while (i < ranges.size()) {
-        if (ranges[i] <= minimum_gap_threshold_) { 
-            ++i; 
-            continue; 
-        }
+        if (ranges[i] <= minimum_gap_threshold_) { ++i; continue; }
 
         size_t gap_start = i;
-        while (i < ranges.size() && ranges[i] > minimum_gap_threshold_) {
-            ++i;
-        }
+        while (i < ranges.size() && ranges[i] > minimum_gap_threshold_) ++i;
         size_t gap_end = i;
-        
+
         gaps.push_back({static_cast<int>(gap_start), static_cast<int>(gap_end)});
     }
-    
+
     return gaps;
 }
 
 std::pair<int, int> FollowTheGapNode::pick_best_gap(
     const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
-    const vector<float>& ranges, 
-    const std::vector<std::pair<int, int>>& gaps)
+    const vector<float>& ranges,
+    const vector<std::pair<int, int>>& gaps)
 {
     std::pair<int, int> best_gap = {-1, -1};
     float best_score = -1.0f;
@@ -111,18 +100,16 @@ std::pair<int, int> FollowTheGapNode::pick_best_gap(
         int gap_start = gap.first;
         int gap_end = gap.second;
 
-        // Calculate average depth of the gap
         float sum = 0.0f;
-        for (int j = gap_start; j < gap_end; ++j) {
-            sum += ranges[j];
-        }
+        for (int j = gap_start; j < gap_end; ++j) sum += ranges[j];
         float avg_depth = sum / (gap_end - gap_start);
-        
-        // Ensure the gap is wide enough for the car
-        size_t min_width = static_cast<size_t>((car_width_ / avg_depth) / scan_msg->angle_increment);
+
+        // exact angular width check using atan2 instead of small angle approx
+        double theta = 2.0 * std::atan2(car_width_ / 2.0, static_cast<double>(avg_depth));
+        size_t min_width = static_cast<size_t>(theta / scan_msg->angle_increment);
         if (static_cast<size_t>(gap_end - gap_start) < min_width) continue;
 
-        // Scoring based on width * depth (as suggested in the image)
+        // width x depth scoring
         float score = (gap_end - gap_start) * avg_depth;
 
         if (score > best_score) {
@@ -130,17 +117,15 @@ std::pair<int, int> FollowTheGapNode::pick_best_gap(
             best_gap = gap;
         }
     }
-    
+
     return best_gap;
 }
 
 int FollowTheGapNode::pick_best_point(const std::pair<int, int>& best_gap)
 {
-    if (best_gap.first == -1 || best_gap.second == -1) {
-        return -1; // Invalid gap
-    }
-    
-    // Pick the center of the gap (as suggested in the image)
+    if (best_gap.first == -1 || best_gap.second == -1) return -1;
+
+    // pick center of the gap
     return best_gap.first + (best_gap.second - best_gap.first) / 2;
 }
 
@@ -151,20 +136,21 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
     auto gaps = find_all_gaps(ranges);
     auto best_gap = pick_best_gap(scan_msg, ranges, gaps);
     int best_idx = pick_best_point(best_gap);
-
-    if (best_idx == -1)
-    {
+                                            //skibidi milad
+    if (best_idx == -1) {
         RCLCPP_WARN(this->get_logger(), "No valid gap found");
         return;
     }
 
     float steering_angle = scan_msg->angle_min + scan_msg->angle_increment * best_idx;
-    float abs_angle = std::abs(steering_angle);
+    // clamp to F1Tenth hardware limits
+    steering_angle = std::clamp(steering_angle, -0.4189f, 0.4189f);
 
+    float abs_angle = std::abs(steering_angle);
     float speed;
-    if (abs_angle < 10.0 * M_PI / 180.0) speed = 2.0f;
-    else if (abs_angle < 20.0 * M_PI / 180.0) speed = 1.5f;
-    else speed = 0.5f;
+    if (abs_angle < 10.0f * M_PI / 180.0f)      speed = 2.0f;
+    else if (abs_angle < 20.0f * M_PI / 180.0f) speed = 1.5f;
+    else                                          speed = 0.5f;
 
     ackermann_msgs::msg::AckermannDriveStamped drive_msg;
     drive_msg.header.stamp = scan_msg->header.stamp;

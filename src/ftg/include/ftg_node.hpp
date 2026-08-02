@@ -1,3 +1,4 @@
+#pragma once
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -25,12 +26,6 @@ private:
     /// @param scan_msg The scan data from the lidar
     /// @return preprocessed range vector
     vector<float> preprocess_lidar(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg);
-
-    /// @brief extend obstacles outward to account for car width
-    /// @param scan_msg the scan data from the lidar
-    /// @param ranges preprocessed range vector to modify in place
-    void extend_obstacles(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
-        vector<float>& ranges);
 
     /// @brief creates a safety bubble around closest obstacle
     /// @param ranges preprocessed range vector to modify in place
