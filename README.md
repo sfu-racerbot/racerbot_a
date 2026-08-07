@@ -8,3 +8,8 @@
 
 ## Codebase
 - The Racerbot Team A Codebase can be found [here](src)
+
+## Drive intent
+- How to publish `/drive_intent` from this repo's nodes, so the car's web
+  dashboard can draw what the algorithm is trying to do and why:
+  [docs/DRIVE_INTENT.md](docs/DRIVE_INTENT.md)
