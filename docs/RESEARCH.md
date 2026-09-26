@@ -47,7 +47,40 @@ Contains notes and learnings from testing in simulation, on the car, and from le
 
 ## Mapping Driving
 
-(No notes yet.)
+
+### TF Systems
+
+**Issue:** the car tracks its own motion by counting wheel turns and steering angle (dead reckoning). This is smooth and fast, but drifts over time from wheel slip, tire wear, and hardware imperfections. (this live estimate is the `odom` frame.)
+
+**Frames and the tree**
+- Every coordinate frame (`map`, `odom`, `base_link`, sensor frames) sits in one tree, and each frame has exactly one parent. (Set by [REP 105](https://www.ros.org/reps/rep-0105.html), the official ROS spec for robot frames.)
+- Fixed parts on the car (sensor mounts) publish a static transform once. Moving things publish a live one continuously.
+- Any node can ask "where is X relative to Y" and tf2 chains the pieces together, using [tf2 tutorials, ROS 2 docs](https://docs.ros.org/en/humble/Tutorials/Intermediate/Tf2/Writing-A-Tf2-Listener-Cpp.html) as the reference.
+
+**Order**
+`map` -> `odom` -> `base_link` -> sensors
+- `base_link`: bolted to the chassis, doesn't move relative to the car (rear axle center).
+- `odom`: dead reckoning. Drifts over time, but continuous ([REP 105](https://www.ros.org/reps/rep-0105.html)).
+- `map`: tied to the saved track map. Accurate long term, but can jump when localization corrects it.
+- Map and odom can't both attach straight to base_link. A frame can only have one parent, so they have to be stacked.
+
+![image](https://github.com/user-attachments/assets/8ea4d426-5d16-4cf7-b944-fdc7f856afce)
+
+**Odometry (`odom → base_link`)**
+- Published by whatever reads the wheels/VESC (plus IMU if we fuse it), at a high steady rate.
+- This is what our reactive nodes actually use (wall follow, follow the gap, pure pursuit) since they only need recent motion, not a global position.
+- Reliable odometry is also what our TTC safety logic needs (see Safety above).
+
+
+**Splitting up `map` and `odom`**
+- Speed: localization updates slower (10 to 40Hz) than control needs (50 to 100+Hz). Splitting allows fast nodes work asynchronously with slow nodes.
+- Safety: jumps only ever happen in `map` to `odom`. `map` to `base_link` never jumps, so PID and follow the gap never get destabilized mid turn.
+- Simplicity: anything that wants the car's map position (costmap, raceline follower, RViz) just asks for it, and tf2 chains map, odom, and base_link together automatically.
+
+
+**Debugging:** use `ros2 run tf2_ros tf2_echo  ` to show a live transform, and use `ros2 run rqt_tf_tree rqt_tf_tree` to see the whole tree for debugging purposes.
+
+
 
 ## AI Driving
 
