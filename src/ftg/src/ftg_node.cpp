@@ -12,15 +12,10 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node")
     this->declare_parameter("car_width", 0.4);
     this->declare_parameter("minimum_gap_threshold", 1.0);
 
-    //Added parameter - Low-pass filter window size
-    this->declare_parameter("smoothing_window_size",5);
-
     max_lidar_range_ = this->get_parameter("max_lidar_range").as_double();
     fov_half_angle_ = this->get_parameter("fov_half_angle_deg").as_double() * M_PI / 180.0;
     car_width_ = this->get_parameter("car_width").as_double();
     minimum_gap_threshold_ = this->get_parameter("minimum_gap_threshold").as_double();
-
-    smoothing_window_size_ = this->get_parameter("smoothing_window_size").as_int();
 
     this->drive_msg_publisher = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
     this->laser_scan_subscriber = this->create_subscription<sensor_msgs::msg::LaserScan>(
@@ -40,34 +35,10 @@ vector<float> FollowTheGapNode::preprocess_lidar(const sensor_msgs::msg::LaserSc
         ranges[i] = std::min(ranges[i], static_cast<float>(max_lidar_range_));
     }
 
+    vector<float> smooth = ranges;
 
-    //Implemented Low-Pass-Filter:
-vector <float> smooth(ranges.size(), 0.0f);
-    int window = smoothing_window_size_;
-    int half_window = window / 2;
-
-    for (int i = 0; i < static_cast<int>(ranges.size()); ++i) {
-        float sum = 0.0f;
-        int valid_count = 0;
-        
-        // Calculate dynamic boundaries to prevent index out of bounds
-        int start = std::max(0, i - half_window);
-        int end = std::min(static_cast<int>(ranges.size()) - 1, i + half_window);
-        
-        for (int j = start; j <= end; ++j) {
-            //erasing 0 values
-            if (ranges[j] > 0.001f) { 
-                sum += ranges[j];
-                valid_count++;
-            }
-        }
-        
-        // If there were valid points in the window, average them. Otherwise, remain 0.0.
-        if (valid_count > 0) {
-            smooth[i] = sum / static_cast<float>(valid_count);
-        } else {
-            smooth[i] = 0.0f;
-        }
+    for (size_t i = 1; i < ranges.size() - 1; ++i) {
+        smooth[i] = (ranges[i-1] + ranges[i] + ranges[i+1]) / 3.0f;
     }
 
     ranges = smooth;
