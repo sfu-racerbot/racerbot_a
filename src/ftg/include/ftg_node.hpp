@@ -20,7 +20,6 @@ private:
     double fov_half_angle_;
     double car_width_;
     double minimum_gap_threshold_;
-    int smoothing_window_size_;
 
     /// @brief clean lidar scan
     /// @param scan_msg The scan data from the lidar
