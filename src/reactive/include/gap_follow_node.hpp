@@ -1,6 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "reactive/msg/gap.hpp"
 
@@ -17,9 +18,11 @@ public:
 private:
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
     rclcpp::Subscription<reactive::msg::Gap>::SharedPtr gap_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr deadman_sub_;
 
     // ROS2 parameters
     bool use_fallback_method_ = false;
+    bool enable_deadman_ = true;
     int degree_ = 2;
     double steering_gain_ = 1.0;
     double k_samples_ = 200;
@@ -33,6 +36,8 @@ private:
     double filtered_steering_angle_ = 0.0;
     double commanded_steering_angle_ = 0.0;
     double last_callback_time_ = 0.0;
+
+    bool deadman_engaged_ = false;
 
 
     /// @brief Callback invoked each time we find a valid gap from the laser scan.
@@ -70,4 +75,7 @@ private:
     /// @param angle The target angle
     /// @return The speed the car should drive at
     double angle_to_speed_function(double angle);
+
+    /// @brief Runs everytime something is published to the deadman topic
+    void deadman_callback(const std_msgs::msg::Bool::ConstSharedPtr deadman_msg);
 };

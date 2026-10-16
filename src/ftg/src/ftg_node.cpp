@@ -11,17 +11,22 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node")
     this->declare_parameter("fov_half_angle_deg", 90.0);
     this->declare_parameter("car_width", 0.4);
     this->declare_parameter("minimum_gap_threshold", 1.0);
+    this->declare_parameter("enable_deadman", true);
 
     max_lidar_range_ = this->get_parameter("max_lidar_range").as_double();
     fov_half_angle_ = this->get_parameter("fov_half_angle_deg").as_double() * M_PI / 180.0;
     car_width_ = this->get_parameter("car_width").as_double();
     minimum_gap_threshold_ = this->get_parameter("minimum_gap_threshold").as_double();
+    enable_deadman_ = this->get_parameter("enable_deadman").as_bool();
 
     this->drive_msg_publisher = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
     this->laser_scan_subscriber = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "scan",
         10,
         std::bind(&FollowTheGapNode::lidar_callback, this, std::placeholders::_1));
+    deadman_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+        "/safety/deadman", 10,
+        std::bind(&FollowTheGapNode::deadman_callback, this, std::placeholders::_1));
 }
 
 vector<float> FollowTheGapNode::preprocess_lidar(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
@@ -150,6 +155,15 @@ int FollowTheGapNode::pick_best_point(const std::pair<int, int>& best_gap)
 
 void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
 {
+    int safety_publisher_count = this->deadman_sub_->get_publisher_count();
+    if (enable_deadman_ && (!deadman_engaged_ || safety_publisher_count == 0)) {
+        ackermann_msgs::msg::AckermannDriveStamped drive_msg;
+        drive_msg.header.stamp = this->now();
+        drive_msg.drive.speed = 0.0;
+        drive_msg_publisher->publish(drive_msg);
+        return;
+    }
+
     auto ranges = preprocess_lidar(scan_msg);
     draw_safety_bubble(scan_msg, ranges);
     auto gaps = find_all_gaps(ranges);
@@ -193,6 +207,10 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
     drive_msg.drive.steering_angle = steering_angle;
     drive_msg.drive.speed = speed;
     drive_msg_publisher->publish(drive_msg);
+}
+
+void FollowTheGapNode::deadman_callback(const std_msgs::msg::Bool::ConstSharedPtr deadman_msg) {
+    deadman_engaged_ = deadman_msg->data;
 }
 
 int main(int argc, char **argv)

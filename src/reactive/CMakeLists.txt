@@ -13,6 +13,7 @@ find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # Include directories into build
 include_directories(include)
@@ -32,18 +33,13 @@ target_link_libraries(gap_finder_node "${cpp_typesupport_target}")
 
 # Add gap follower executable
 add_executable(gap_follow_node src/gap_follow_node.cpp)
-ament_target_dependencies(gap_follow_node rclcpp ackermann_msgs sensor_msgs nav_msgs Eigen3)
+ament_target_dependencies(gap_follow_node rclcpp ackermann_msgs sensor_msgs nav_msgs Eigen3 std_msgs)
 target_link_libraries(gap_follow_node "${cpp_typesupport_target}" Eigen3::Eigen)
-
-# Safety node executable
-add_executable(safety_node src/safety_node.cpp)
-ament_target_dependencies(safety_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
 
 # Install executables
 install(TARGETS
   gap_finder_node
   gap_follow_node
-  safety_node
   DESTINATION lib/${PROJECT_NAME})
 
 # add launch

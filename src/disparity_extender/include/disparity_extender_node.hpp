@@ -2,6 +2,7 @@
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -14,6 +15,8 @@ public:
 private:
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_scan_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr deadman_sub_;
+    
     float prev_steer_ = 0.0f;
     double max_lidar_range_;
     double car_width_;
@@ -26,6 +29,9 @@ private:
     double alpha_;
     double wheelbase_;
     double max_lateral_acc_;
+    bool enable_deadman_;
+
+    bool deadman_engaged_;
 
     /// @brief Callback invoked each time the lidar completes a new scan.
     /// @param scan_msg Shared pointer to the incoming LaserScan message.
@@ -64,4 +70,7 @@ private:
     /// @param range Target point distance from the vehicle
     /// @param steering_angle Steering angle toward the target point
     void drive_best_point(const float range, const float steering_angle);
+
+    /// @brief Runs everytime something is published to the deadman topic
+    void deadman_callback(const std_msgs::msg::Bool::ConstSharedPtr deadman_msg);
 };

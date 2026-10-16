@@ -97,7 +97,6 @@ def generate_launch_description():
                 executable="gap_finder_node",
                 name="gap_finder_node",
                 output="screen",
-                remappings=[("drive", "drive_raw")],
             ),
             # Launch gap_follower_node
             Node(
@@ -105,7 +104,6 @@ def generate_launch_description():
                 executable="gap_follow_node",
                 name="gap_follow_node",
                 output="screen",
-                remappings=[("drive", "drive_raw")],
                 parameters=[
                     {
                         "use_fallback_method": LaunchConfiguration(
@@ -120,19 +118,7 @@ def generate_launch_description():
                         "hysteresis_alpha": LaunchConfiguration("hysteresis_alpha"),
                         "speed_curve_scale": LaunchConfiguration("speed_curve_scale"),
                         "max_slew_rate": LaunchConfiguration("max_slew_rate"),
-                    }
-                ],
-            ),
-            # Launch safety_node
-            Node(
-                package="reactive",
-                executable="safety_node",
-                name="safety_node",
-                output="screen",
-                parameters=[
-                    {
                         "enable_deadman": LaunchConfiguration("enable_deadman"),
-                        "enable_ttc": LaunchConfiguration("enable_ttc"),
                     }
                 ],
             ),

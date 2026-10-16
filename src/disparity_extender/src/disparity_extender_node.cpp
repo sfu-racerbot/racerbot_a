@@ -37,10 +37,22 @@ DisparityExtenderNode::DisparityExtenderNode() : Node("disparity_extender_node")
         "scan",
         10,
         std::bind(&DisparityExtenderNode::lidar_callback, this, std::placeholders::_1));
+    deadman_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+        "/safety/deadman", 10,
+        std::bind(&DisparityExtenderNode::deadman_callback, this, std::placeholders::_1));
 }
 
 void DisparityExtenderNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
 {
+    int safety_publisher_count = this->deadman_sub_->get_publisher_count();
+    if (enable_deadman_ && (!deadman_engaged_ || safety_publisher_count == 0)) {
+        ackermann_msgs::msg::AckermannDriveStamped drive_msg;
+        drive_msg.header.stamp = this->now();
+        drive_msg.drive.speed = 0.0;
+        drive_pub_->publish(drive_msg);
+        return;
+    }
+
     auto ranges = preprocess_lidar(scan_msg);
     extend_obstacles(scan_msg, ranges);
     draw_safety_bubble(scan_msg, ranges);
@@ -237,6 +249,10 @@ void DisparityExtenderNode::drive_best_point(const float range, const float stee
     drive_msg.drive.steering_angle = steer;
     drive_msg.drive.speed = velocity;
     drive_pub_->publish(drive_msg);
+}
+
+void DisparityExtenderNode::deadman_callback(const std_msgs::msg::Bool::ConstSharedPtr deadman_msg) {
+    deadman_engaged_ = deadman_msg->data;
 }
 
 int main(int argc, char **argv)

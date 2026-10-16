@@ -11,6 +11,7 @@ find_package(ackermann_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # Include directories into build
 include_directories(include)
@@ -29,13 +30,9 @@ endif()
 
 # FTG node executable
 add_executable(ftg_node src/ftg_node.cpp)
-ament_target_dependencies(ftg_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
+ament_target_dependencies(ftg_node rclcpp ackermann_msgs sensor_msgs nav_msgs std_msgs)
 
-# Safety node executable
-add_executable(safety_node src/safety_node.cpp)
-ament_target_dependencies(safety_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
-
-install(TARGETS ftg_node safety_node DESTINATION lib/${PROJECT_NAME})
+install(TARGETS ftg_node DESTINATION lib/${PROJECT_NAME})
 
 install(
   DIRECTORY launch

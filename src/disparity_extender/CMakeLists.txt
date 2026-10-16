@@ -11,23 +11,19 @@ find_package(ackermann_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # Include directories into build
 include_directories(include)
 
 # Add disparity extender executable
 add_executable(disparity_extender_node src/disparity_extender_node.cpp)
-ament_target_dependencies(disparity_extender_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
+ament_target_dependencies(disparity_extender_node rclcpp ackermann_msgs sensor_msgs nav_msgs std_msgs)
 target_link_libraries(disparity_extender_node "${cpp_typesupport_target}")
-
-# Safety node executable
-add_executable(safety_node src/safety_node.cpp)
-ament_target_dependencies(safety_node rclcpp ackermann_msgs sensor_msgs nav_msgs)
 
 # Install executables
 install(TARGETS
   disparity_extender_node
-  safety_node
   DESTINATION lib/${PROJECT_NAME})
 
 # Add launch
