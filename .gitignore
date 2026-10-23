@@ -7,6 +7,9 @@
 # Python cache
 __pycache__/
 *.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
 
 build/
 install/
