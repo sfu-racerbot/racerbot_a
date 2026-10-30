@@ -20,7 +20,7 @@ def generate_launch_description():
 
     min_speed_arg = DeclareLaunchArgument(
         "min_speed",
-        default_value="0.5",
+        default_value="0.7",
         description="Minimum forward speed allowed in meters per second",
     )
 
@@ -32,7 +32,7 @@ def generate_launch_description():
 
     fov_half_angle_deg_arg = DeclareLaunchArgument(
         "fov_half_angle_deg",
-        default_value="70.0",
+        default_value="100.0",
         description="Half field-of-view angle considered for processing (degrees)",
     )
 
@@ -88,6 +88,12 @@ def generate_launch_description():
         "steering_deadzone",
         default_value="0.7",
         description="Deadzone angle in radians below which steering is zeroed out",
+    )
+
+    steering_max_angle_arg = DeclareLaunchArgument(
+        "steering_angle_max",
+        default_value="0.349",
+        description="Maximum turning angle in radians."
     )
 
     opponent_car = LaunchConfiguration("opponent_car")

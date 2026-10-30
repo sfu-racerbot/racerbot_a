@@ -12,7 +12,7 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     this->declare_parameter("max_speed", 4.5);
     this->declare_parameter("min_speed", 0.5);
     this->declare_parameter("max_lidar_range", 10.0);
-    this->declare_parameter("fov_half_angle_deg", 70.0);
+    this->declare_parameter("fov_half_angle_deg", 100.0);
     this->declare_parameter("car_width", 0.4);
     this->declare_parameter("minimum_gap_threshold", 1.0);
     this->declare_parameter("enable_safety", true);
@@ -23,6 +23,7 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     this->declare_parameter("wheelbase", 0.33);
     this->declare_parameter("lookahead_max", 1.8);
     this->declare_parameter("steering_deadzone",0.7);
+    this->declare_parameter("steering_angle_max", 0.349);
 
     max_speed_ = this->get_parameter("max_speed").as_double();
     min_speed_ = this->get_parameter("min_speed").as_double();
@@ -38,6 +39,7 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     wheelbase_ = this->get_parameter("wheelbase").as_double();
     lookahead_max_ = this->get_parameter("lookahead_max").as_double();
     steering_deadzone_ = this->get_parameter("steering_deadzone").as_double() * M_PI / 180.0;
+    steering_angle_max_ = this->get_parameter("steering_angle_max").as_double();
     prev_angle_ = 0;
 
     this->drive_msg_publisher = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
@@ -180,8 +182,11 @@ std::pair<int, int> FollowTheGapNode::pick_best_gap(const sensor_msgs::msg::Lase
         size_t min_width = static_cast<size_t>((car_width_ / avg_depth) / scan_msg->angle_increment);
         if (static_cast<size_t>(gap_end - gap_start) < min_width) continue;
 
-        // Score favors gaps that are both wide and deep
-        float score = (gap_end - gap_start) * avg_depth;
+        // Score to find best gap by favoring gaps that are both wide and deep
+        float score = 0.0f;
+        for (int j = gap_start; j < gap_end; j++) {
+          score += ranges[j] - minimum_gap_threshold_;
+        }
 
         if (score > best_score) {
             best_score = score;
@@ -239,7 +244,16 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
     // target angle arcing through target point
     float target_angle = static_cast<float>(std::atan2(2.0 * wheelbase_ * std::sin(current_angle), lookahead));
 
-    // smooth with prev
+    //If the point we need to steer to is hard to the left or right, steer as hard to it
+    if (abs(current_angle) > 50 * M_PI / 180.0) {
+      if (current_angle >= 0) {
+        target_angle = steering_angle_max_; // Steering max
+      } else {
+        target_angle = -1.0f * 0.41f;
+      }
+    }
+
+    // Smooth with previous steering_angle
     float steering_angle = prev_angle_ * prev_angle_adjuster_ + target_angle * (1 - prev_angle_adjuster_);
     prev_angle_ = steering_angle;
 
@@ -253,7 +267,7 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
     float speed;
 
     // Angle-based factor
-    double max_angle = 14.0 * M_PI / 180.0; // angle at/beyond which speed hits its minimum
+    double max_angle = 18.0 * M_PI / 180.0; // angle at/beyond which speed hits its minimum
     double min_angle_speed = min_speed_;
     double max_angle_speed = max_speed_;
 
