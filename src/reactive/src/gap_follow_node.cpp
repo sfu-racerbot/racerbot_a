@@ -18,7 +18,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     this->declare_parameter("degree", 2);
     this->declare_parameter("steering_gain", 1.0);
     this->declare_parameter("k_samples", 200);
-    this->declare_parameter("max_steering_angle", 45.0);
+    this->declare_parameter("max_steering_angle", 20.0);
     this->declare_parameter("max_speed", 4.0);
     this->declare_parameter("min_speed", 0.5);
     this->declare_parameter("hysteresis_alpha", 0.3);

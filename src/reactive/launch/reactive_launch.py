@@ -38,7 +38,7 @@ def generate_launch_description():
 
     max_steering_angle = DeclareLaunchArgument(
         "max_steering_angle",
-        default_value="45.0",
+        default_value="20.0",
         description="Maximum steering angle allowed for the follower in degrees",
     )
 
@@ -178,12 +178,24 @@ def generate_launch_description():
                     {"car_width_extended": LaunchConfiguration("car_width_extended")},
                     {"disparity_threshold": LaunchConfiguration("disparity_threshold")},
                     {"fov_half_angle_deg": LaunchConfiguration("fov_half_angle_deg")},
-                    {"minimum_gap_threshold": LaunchConfiguration("minimum_gap_threshold")},
+                    {
+                        "minimum_gap_threshold": LaunchConfiguration(
+                            "minimum_gap_threshold"
+                        )
+                    },
                     {"obstacle_distance": LaunchConfiguration("obstacle_distance")},
                     {"obstacle_edge_jump": LaunchConfiguration("obstacle_edge_jump")},
                     {"obstacle_max_width": LaunchConfiguration("obstacle_max_width")},
-                    {"obstacle_min_target_angle_deg": LaunchConfiguration("obstacle_min_target_angle_deg")},
-                    {"obstacle_hold_frames": LaunchConfiguration("obstacle_hold_frames")},
+                    {
+                        "obstacle_min_target_angle_deg": LaunchConfiguration(
+                            "obstacle_min_target_angle_deg"
+                        )
+                    },
+                    {
+                        "obstacle_hold_frames": LaunchConfiguration(
+                            "obstacle_hold_frames"
+                        )
+                    },
                 ],
             ),
             # Launch gap_follower_node
