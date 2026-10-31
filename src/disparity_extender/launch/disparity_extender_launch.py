@@ -6,6 +6,12 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
+    enable_stop_arg = DeclareLaunchArgument(
+        "enable_stop",
+        default_value="true",
+        description="Whether to stop the car if no valid gap is found",
+    )
+
     enable_safety_arg = DeclareLaunchArgument(
         "enable_safety",
         default_value="true",
@@ -98,6 +104,7 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            enable_stop_arg,
             enable_safety_arg,
             opponent_car_arg,
             max_lidar_range_arg,
@@ -119,6 +126,7 @@ def generate_launch_description():
                 name="disparity_extender_node",
                 output="screen",
                 parameters=[
+                    {"enable_stop": LaunchConfiguration("enable_stop")},
                     {"enable_safety": LaunchConfiguration("enable_safety")},
                     {"max_lidar_range": LaunchConfiguration("max_lidar_range")},
                     {"car_width": LaunchConfiguration("car_width")},
