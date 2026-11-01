@@ -315,7 +315,11 @@ int GapFinderNode::find_furthest_point(vector<float> &ranges, const std::pair<in
         }
     }
 
-    return best_mid;
+   // Blend the furthest point with the geometric center of the gap
+    int gap_center = gap.first + (gap.second - gap.first) / 2;
+    double alpha = 0.6; // 60% furthest point, 40% gap center (tune as needed)
+    
+    return static_cast<int>(alpha * best_mid + (1.0 - alpha) * gap_center);
 }
 
 int main(int argc, char **argv)
