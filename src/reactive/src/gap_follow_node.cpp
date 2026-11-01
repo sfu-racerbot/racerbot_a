@@ -39,7 +39,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     min_speed_ = this->get_parameter("min_speed").as_double();
     hysteresis_alpha_ = this->get_parameter("hysteresis_alpha").as_double();
     speed_curve_scale_ = this->get_parameter("speed_curve_scale").as_double();
-    max_slew_rate_ = this->get_parameter("max_slew_rate").as_double();
+    max_slew_rate_ = DEG2RAD(this->get_parameter("max_slew_rate").as_double());
 }
 
 void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_msg)
@@ -55,7 +55,7 @@ void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_ms
         return;
     }
 
-    if (use_fallback_method_)
+    if (use_fallback_method_ || gap_msg->obstacle_ahead)
     {
         drive_best_point(gap_msg);
     }
