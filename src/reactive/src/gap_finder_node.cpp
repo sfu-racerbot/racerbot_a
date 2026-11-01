@@ -158,12 +158,30 @@ bool GapFinderNode::detect_obstacle(const sensor_msgs::msg::LaserScan::ConstShar
 
 bool GapFinderNode::update_obstacle_state(bool detected)
 {
-    if (detected)
-        obstacle_hold_counter_ = obstacle_hold_frames_;
-    else if (obstacle_hold_counter_ > 0)
-        --obstacle_hold_counter_;
+    bool prev_state = (obstacle_hold_counter_ > 0);
 
-    return obstacle_hold_counter_ > 0;
+    if (detected)
+    {
+        obstacle_hold_counter_ = obstacle_hold_frames_;
+    }
+    else if (obstacle_hold_counter_ > 0)
+    {
+        --obstacle_hold_counter_;
+    }
+
+    bool current_state = (obstacle_hold_counter_ > 0);
+
+    // Log only on state transitions to avoid spamming the console
+    if (!prev_state && current_state)
+    {
+        RCLCPP_WARN(this->get_logger(), "Obstacle detected ahead! Engaging braking override.");
+    }
+    else if (prev_state && !current_state)
+    {
+        RCLCPP_INFO(this->get_logger(), "Obstacle cleared. Resuming normal gap following speed.");
+    }
+
+    return current_state;
 }
 
 vector<float> GapFinderNode::preprocess_lidar(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
