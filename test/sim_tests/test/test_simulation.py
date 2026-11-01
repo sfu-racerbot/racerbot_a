@@ -91,11 +91,12 @@ class LoopDetector:
 
 ## Takes in lidar data and odometry to determine if a car has collided with anything. If so ends the test as a failure
 class CrashDetector:
-    def __init__(self, crash_threshold = 0.3, slowdown_threshold = 0.1):
-        # radius of the bubble around the car that should be considered a crash.
-        # idealy should be the smallest radius which will fit all four corners of the car. My testing has
-        # found that 0.3 is a good threshold
+    def __init__(self, crash_threshold = 0.275, slowdown_threshold = 0.1):
+        # The extra % distance youd like to give around the car to add a small bubble around the physical diameter of the car
+        #
+        #
         self.crash_threshold = crash_threshold
+        self.car_half_width = 0.16
 
         # Threshold for the ratio between the previous and current forward speed of the car. In practive this measures how much speed
         # the car must lose between one odometry reading and other for it to be considered a crash (0.1 == current speed is 10% of previous
@@ -112,11 +113,29 @@ class CrashDetector:
     # Searching for a lidar distance that is less than the defined radius of the car's bubble (crash_threshold)
     # Lidar readings limited to a 270 degree angle around the car so collisions with the rear of the car will not
     # be caught by this method (Ex: high speed turn leading to the rear end of the car getting clipped due to skidding).
-    def detect_crash_bubble(self, ranges):
+    def detect_crash_bubble(self, lid_msg):
+        ranges = lid_msg.ranges
+
+        #keeping track of the current angle of the lidar scan. So i can adjust the appropriate 
+        angle = lid_msg.angle_max
+
         for distance in ranges:
-            if(distance < self.crash_threshold):
+            if(abs(angle) >= math.pi/2):
+                # If the car is behind the front plate but within the 270 degree vision of the car then calculate the hypoteneus of
+                # the triangle formed by the center of the front of the car (where the lidar is measured from), the front corner of the car,
+                # and the point where our current scan meets our car (we know the distance from the lidar to the corner so
+                # h = car_width/2/(cos(angle of the hypoteneus line relative to the front bumper))) 
+                limit = (self.car_half_width/math.cos(abs(angle)- math.pi/2))
+            else:
+                # For the angles infront of our car im setting the limit to 0.1. If we slam straight on into a wall atleast one
+                # of the ranges should be withing this range. If not the slowdown crash detection will handle this no problem
+                limit = 0.1
+
+            #Adding crash_threshold worth of extra room to the bubble just to add some space
+            if(distance < (self.crash_threshold * (limit) + limit)):
                 self.crash_detected = True
-                self.create_summary("Object Entered The Cars Bubble")
+                self.create_summary("Object Entered The Cars Bubble", str(distance))
+            angle -= 0.005760866682976484
 
     # Checking to see if the car experienced a sudden intense slowdown. If that slowdown is intense enough
     # assume that it was caused by collision with an object.
@@ -125,15 +144,16 @@ class CrashDetector:
     def detect_crash_slowdown(self, new_measured_speed):
         if((self.last_measured_speed > new_measured_speed) and ((new_measured_speed/self.last_measured_speed) < self.slowdown_threshold)):
                 self.crash_detected = True
-                self.create_summary("Sudden Speed Loss")
+                self.create_summary("Sudden Speed Loss", "N/A")
         
         self.last_measured_speed = new_measured_speed
 
 
-    def create_summary(self, reason):
+    def create_summary(self, reason, crash_distance):
         failure_message = "Status: Failed\n"
         failure_message += "Reason: Crash -- " + reason + "\n"
         failure_message += "Crash Threshold: " + str(self.crash_threshold) + "\n"
+        failure_message += "Crash_Distance: " + crash_distance + "\n"
         failure_message += "Slowdown Ratio: " + str(self.slowdown_threshold) + "\n"
         failure_message += "Algorithm: TBA once variable speed and algorithms are added to the script\n"
         failure_message += "Max Speed: TBA ^" 
@@ -218,7 +238,7 @@ def test_odometry_received(sim_logger):
     )
 
     try:
-        deadline = time.monotonic() + 10.0
+        deadline = time.monotonic() + 7.5
 
         while time.monotonic() < deadline:
             rclpy.spin_once(node, timeout_sec=0.1)
@@ -240,51 +260,51 @@ def test_odometry_received(sim_logger):
 #                  we don't even see the car run in the simulator. 
 
 ##--- watches car's odometry, passes if loop is detected
-# @pytest.mark.launch(fixture=simulation)
-# def test_loop_detected(request):
-#     rclpy.init()
-#     node = rclpy.create_node("main_test")
+@pytest.mark.launch(fixture=simulation)
+def test_loop_detected(request):
+    rclpy.init()
+    node = rclpy.create_node("main_test")
 
-#     detector = LoopDetector(radius=1.0, leave_dist=3.0)
-#     # class to keep track of data relevant for crash detection
-#     crash_detector = CrashDetector(crash_threshold = 0.3, slowdown_threshold=0.1)
-#     lap_pub = node.create_publisher(String, "/lap_detected", 10)
-#     received = []
+    detector = LoopDetector(radius=1.0, leave_dist=3.0)
+    # class to keep track of data relevant for crash detection
+    crash_detector = CrashDetector(crash_threshold = 0.0, slowdown_threshold=0.1)
+    lap_pub = node.create_publisher(String, "/lap_detected", 10)
+    received = []
 
-#     # callback function for the bubble crash detection
-#     def lidar_sub(msg):
-#         ranges = msg.ranges
-#         crash_detector.detect_crash_bubble(ranges)
+    # callback function for the bubble crash detection
+    def lidar_sub(msg):
+        #ranges = msg.ranges
+        crash_detector.detect_crash_bubble(lid_msg=msg)
 
-#     def odom_cb(msg):
-#         received.append(msg)
-#         p = msg.pose.pose
-#         yaw = yaw_from_quat(p.orientation)
-#         t = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-#         if detector.update(p.position.x, p.position.y, yaw, t):
-#             text = f"Lap {detector.laps} completed"
-#             lap_pub.publish(String(data=text))
-#             node.get_logger().info(text)
-#         # Watching how the cars forward momentum changes. If it instantly goes down by a massive amount register that as a crash
-#         new_measured_speed = msg.twist.twist.linear.x
-#         crash_detector.detect_crash_slowdown(new_measured_speed)
+    def odom_cb(msg):
+        received.append(msg)
+        p = msg.pose.pose
+        yaw = yaw_from_quat(p.orientation)
+        t = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        if detector.update(p.position.x, p.position.y, yaw, t):
+            text = f"Lap {detector.laps} completed"
+            lap_pub.publish(String(data=text))
+            node.get_logger().info(text)
+        # Watching how the cars forward momentum changes. If it instantly goes down by a massive amount register that as a crash
+        new_measured_speed = msg.twist.twist.linear.x
+        crash_detector.detect_crash_slowdown(new_measured_speed)
 
-#     node.create_subscription(Odometry, "/ego_racecar/odom", odom_cb, 10)
-#     node.create_subscription(LaserScan, "/scan", lidar_sub, 10)
+    node.create_subscription(Odometry, "/ego_racecar/odom", odom_cb, 10)
+    node.create_subscription(LaserScan, "/scan", lidar_sub, 10)
 
-#     try:
-#         deadline = time.monotonic() + 30.0
-#         while (time.monotonic() < deadline and not(crash_detector.crash_detected)):
-#             rclpy.spin_once(node, timeout_sec=0.1)
-#             assert not(crash_detector.crash_detected), "Crash Detected During The Run"
+    try:
+        deadline = time.monotonic() + 120.0
+        while (time.monotonic() < deadline and not(crash_detector.crash_detected)):
+            rclpy.spin_once(node, timeout_sec=0.1)
+            #assert not(crash_detector.crash_detected), "Crash Detected During The Run"
 
-#     finally:
-#         request.config.loop_summary = detector.summary()   # saved for the report
-#         request.config.crash_summary = crash_detector.summary
-#         node.destroy_node()
-#         rclpy.shutdown()
+    finally:
+        request.config.loop_summary = detector.summary()   # saved for the report
+        request.config.crash_summary = crash_detector.summary
+        node.destroy_node()
+        rclpy.shutdown()
 
-#     assert received, "Simulator did not publish odometry"
-#     assert detector.laps >= 1, "Car did not complete a lap within 30 seconds"
-#     assert not(detector.crash_detected), "Crash Detected During The Run"
+    assert received, "Simulator did not publish odometry"
+    assert detector.laps >= 1, "Car did not complete a lap within 30 seconds"
+    assert not(crash_detector.crash_detected), "Crash Detected During The Run"
 

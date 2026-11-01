@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -eo pipefail
+#set -eo pipefail
+set -o pipefail
 
 # Find dir location of this script
 SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -62,9 +63,12 @@ for map in "${MAPS[@]}"; do
 
         export PYTEST_ADDOPTS="--capture=no"
         #run tests
+        # Removed this command from the colcon test to one failure doesnt stop all future runs
+        # 
         colcon test --packages-select sim_tests \
             --return-code-on-test-failure \
             --event-handlers console_direct+
+            
         colcon test-result --verbose
 
         TEST_RESULTS_DIR="$WS_ROOT/build/sim_tests/test_results/sim_tests"
