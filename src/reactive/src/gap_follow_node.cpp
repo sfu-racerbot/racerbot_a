@@ -177,7 +177,7 @@ double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, Eigen
 {
     double theta_min = theta.minCoeff();
     double theta_max = theta.maxCoeff();
-    
+
     double best_theta = theta_min;
     double best_range = -std::numeric_limits<double>::max();
 
@@ -225,10 +225,20 @@ double GapFollowNode::range_to_speed_function(double range)
 
 double GapFollowNode::get_combined_speed(double angle, double range)
 {
-    double angle_speed = angle_to_speed_function(angle);
-    double range_speed = range_to_speed_function(range);
+    static double last_speed = 0.0; // Proxy for current vehicle velocity
 
-    return std::min(angle_speed, range_speed);
+    double angle_speed = angle_to_speed_function(angle);
+    
+    // Braking penalty: Shrink the perceived safe range if moving quickly
+    double lookahead_penalty = 0.6 * last_speed; 
+    double effective_range = std::max(0.0, range - lookahead_penalty);
+    
+    double range_speed = range_to_speed_function(effective_range);
+
+    double final_speed = std::min(angle_speed, range_speed);
+    last_speed = final_speed; // Store for the next iteration
+    
+    return final_speed;
 }
 
 void GapFollowNode::safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPtr safety_brake_msg)
