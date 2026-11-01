@@ -262,15 +262,22 @@ std::pair<int, int> GapFinderNode::find_furthest_gap(const sensor_msgs::msg::Las
             continue; // gap too narrow for the car, skip it
         }
 
-        // Gap is valid - check if it contains a further point than the best gap found so far
-        for (size_t j = gap_start; j < gap_end; ++j)
+        // Gap is valid - Score it based on depth, width, and center alignment
+        float max_depth = *std::max_element(ranges.begin() + gap_start, ranges.begin() + gap_end);
+        double gap_center_angle = scan_msg->angle_min + scan_msg->angle_increment * (gap_start + gap_end) / 2.0;
+        
+        // Tune these weights during track testing
+        const double w_depth = 1.0; 
+        const double w_width = 0.05; 
+        const double w_angle = 1.5; // High penalty for gaps far to the side
+        
+        double score = (w_depth * max_depth) + (w_width * (gap_end - gap_start)) - (w_angle * std::abs(gap_center_angle));
+        
+        if (score > furthest_range) // Reusing furthest_range variable as best_score
         {
-            if (ranges[j] > furthest_range)
-            {
-                furthest_range = ranges[j];
-                best_start = static_cast<int>(gap_start);
-                best_end = static_cast<int>(gap_end);
-            }
+            furthest_range = score; 
+            best_start = static_cast<int>(gap_start);
+            best_end = static_cast<int>(gap_end);
         }
     }
 
