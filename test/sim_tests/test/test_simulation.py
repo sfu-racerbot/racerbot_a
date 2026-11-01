@@ -108,7 +108,7 @@ class CrashDetector:
         self.last_measured_speed = 0.0
 
         self.crash_detected = False
-        self.summary = "No Crash Detected"
+        self.create_summary("N/A")
         
     # Searching for a lidar distance that is less than the defined radius of the car's bubble (crash_threshold)
     # Lidar readings limited to a 270 degree angle around the car so collisions with the rear of the car will not
@@ -134,7 +134,7 @@ class CrashDetector:
             #Adding crash_threshold worth of extra room to the bubble just to add some space
             if(distance < (self.crash_threshold * (limit) + limit)):
                 self.crash_detected = True
-                self.create_summary("Object Entered The Cars Bubble", str(distance))
+                self.create_summary("Object Entered The Cars Bubble")
             angle -= 0.005760866682976484
 
     # Checking to see if the car experienced a sudden intense slowdown. If that slowdown is intense enough
@@ -144,19 +144,27 @@ class CrashDetector:
     def detect_crash_slowdown(self, new_measured_speed):
         if((self.last_measured_speed > new_measured_speed) and ((new_measured_speed/self.last_measured_speed) < self.slowdown_threshold)):
                 self.crash_detected = True
-                self.create_summary("Sudden Speed Loss", "N/A")
+                self.create_summary("Sudden Speed Loss")
         
         self.last_measured_speed = new_measured_speed
 
 
-    def create_summary(self, reason, crash_distance):
-        failure_message = "Status: Failed\n"
-        failure_message += "Reason: Crash -- " + reason + "\n"
-        failure_message += "Crash Threshold: " + str(self.crash_threshold) + "\n"
-        failure_message += "Crash_Distance: " + crash_distance + "\n"
-        failure_message += "Slowdown Ratio: " + str(self.slowdown_threshold) + "\n"
-        failure_message += "Algorithm: TBA once variable speed and algorithms are added to the script\n"
-        failure_message += "Max Speed: TBA ^" 
+    def create_summary(self, reason):
+
+        algorithm = os.environ["ALGORITHM_PACKAGE"]
+        map_name = os.environ["MAP"]
+        min_speed = float(os.environ["MIN_SPEED"])
+        max_speed = float(os.environ["MAX_SPEED"])
+
+        if(self.crash_detected):
+            failure_message = "Status: Crashed\n"
+            failure_message += "Reason: Crash --- " + reason + "\n"
+        else:
+            failure_message = "Status: No Crash\n"
+        failure_message += "Algorithm: " + algorithm + "\n"
+        failure_message += "Map: " + map_name + "\n"
+        failure_message += "Min Speed: " + str(min_speed) + "\n"
+        failure_message += "Max Speed: " + str(max_speed) 
         self.summary = failure_message
 
 
@@ -255,10 +263,6 @@ def test_odometry_received(sim_logger):
         rclpy.shutdown()
 
 
-#FAILING TEST ---> I've commented the test down below out due to how quickly it fails,
-#                  which is then exiting out of the simulator so early to the point where
-#                  we don't even see the car run in the simulator. 
-
 ##--- watches car's odometry, passes if loop is detected
 @pytest.mark.launch(fixture=simulation)
 def test_loop_detected(request):
@@ -293,8 +297,8 @@ def test_loop_detected(request):
     node.create_subscription(LaserScan, "/scan", lidar_sub, 10)
 
     try:
-        deadline = time.monotonic() + 120.0
-        while (time.monotonic() < deadline and not(crash_detector.crash_detected)):
+        deadline = time.monotonic() + 30.0
+        while (time.monotonic() < deadline and not(crash_detector.crash_detected) and (detector.laps < 2)):
             rclpy.spin_once(node, timeout_sec=0.1)
             #assert not(crash_detector.crash_detected), "Crash Detected During The Run"
 
