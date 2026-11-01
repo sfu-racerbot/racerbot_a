@@ -202,11 +202,16 @@ void GapFinderNode::extend_obstacles(const sensor_msgs::msg::LaserScan::ConstSha
 
             if (closer_range > 1e-3f) // avoid divide-by-zero / near-zero blowup
             {
-                double theta = 2.0 * std::atan2(car_width_extended_ / 2.0, closer_range);
-                theta = std::min(theta, M_PI); // also cap max bubble angle as a safety net
+                double dynamic_width = car_width_extended_;
+                if (closer_range < 1.0f)
+                {
+                    dynamic_width = std::max(car_width_extended_ * closer_range, 0.2);
+                }
+
+                double theta = 2.0 * std::atan2(dynamic_width / 2.0, closer_range);
+                theta = std::min(theta, M_PI / 2.0);
 
                 size_t index_increment = static_cast<size_t>((theta / scan_msg->angle_increment) / 2.0);
-
                 size_t start = (i > index_increment) ? i - index_increment : 0;
                 size_t end = std::min(i + index_increment + 1, ranges.size());
 

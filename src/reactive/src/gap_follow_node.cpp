@@ -67,12 +67,18 @@ void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_ms
 
 void GapFollowNode::drive_best_point(const reactive::msg::Gap::ConstSharedPtr gap_msg)
 {
-
     // Publishing to drive
     ackermann_msgs::msg::AckermannDriveStamped drive_msg;
     drive_msg.header.stamp = this->now();
     drive_msg.drive.steering_angle = gap_msg->target_angle;
-    drive_msg.drive.speed = get_combined_speed(gap_msg->target_angle, gap_msg->target_range);
+
+    double speed = get_combined_speed(gap_msg->target_angle, gap_msg->target_range);
+    if (gap_msg->obstacle_ahead)
+    {
+        speed = min_speed_;
+    }
+
+    drive_msg.drive.speed = speed;
     drive_pub_->publish(drive_msg);
 }
 
@@ -124,7 +130,14 @@ void GapFollowNode::least_squares_pathfinding(const reactive::msg::Gap::ConstSha
     ackermann_msgs::msg::AckermannDriveStamped drive_msg;
     drive_msg.header.stamp = this->now();
     drive_msg.drive.steering_angle = commanded_steering_angle_;
-    drive_msg.drive.speed = get_combined_speed(commanded_steering_angle_, gap_msg->target_range);
+
+    double speed = get_combined_speed(commanded_steering_angle_, gap_msg->target_range);
+    if (gap_msg->obstacle_ahead)
+    {
+        speed = min_speed_;
+    }
+
+    drive_msg.drive.speed = speed;
     drive_pub_->publish(drive_msg);
 }
 
@@ -162,9 +175,9 @@ double GapFollowNode::get_curve_output(double x, Eigen::VectorXd coefficients)
 
 double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, Eigen::VectorXd theta, double max_lookahead)
 {
-    double theta_min = std::max(theta.minCoeff(), -max_steering_angle_);
-    double theta_max = std::min(theta.maxCoeff(), max_steering_angle_);
-
+    double theta_min = theta.minCoeff();
+    double theta_max = theta.maxCoeff();
+    
     double best_theta = theta_min;
     double best_range = -std::numeric_limits<double>::max();
 
