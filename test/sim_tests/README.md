@@ -33,7 +33,7 @@ This is where our logging module lives.
 
 The logging currently displays the scenario, chosen parameters (corresponding to the config/algorithms.yaml) and whether the test was a success or failure.
 
-## Run using the following shell script
+# Run using the following shell script
 
 ```bash
 cd /racerbot_ws
