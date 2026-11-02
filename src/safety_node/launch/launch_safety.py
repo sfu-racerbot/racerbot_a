@@ -56,6 +56,7 @@ def generate_launch_description():
             enable_ttc,
             ttc_threshold,
             max_ttc_angle_deg,
+            opponent_car_arg,
             Node(
                 package="safety_node",
                 executable="safety_node",
