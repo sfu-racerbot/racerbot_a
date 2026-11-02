@@ -5,7 +5,7 @@ These are full-system tests that sequentially test out algorithm nodes (pure_pur
 # Data Driven Testing
 
 [Data Driven Testing](https://www.geeksforgeeks.org/software-testing/data-driven-testing/) is the testing methodology being used for these simulator tests,
-where we are essentially reusing the same testing script for differing combinations of chosen maps and algorithms (ftg in levine as an example). This allows us to seperate the implementation of the actual test logic from the data being passed in (hence the data driven name).
+where we are essentially reusing the same testing script for differing combinations of chosen maps and algorithms (ftg in levine as an example). This allows us to seperate the implementation of the actual test logic from the data being passed in (hence the "data driven" name).
 
 # In depth explanation
 
