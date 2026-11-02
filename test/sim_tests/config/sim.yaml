@@ -48,7 +48,7 @@ bridge:
     scan_angle_max: 135.0 # 135°
 
     # map parameters
-    map_path: '/racerbot_ws/src/f1tenth_gym_ros/maps/Spielberg'
+    map_path: '/racerbot_ws/src/f1tenth_gym_ros/maps/levine_obs'
     map_img_ext: '.png'
 
     # car parameters and scale
