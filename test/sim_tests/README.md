@@ -2,6 +2,17 @@
 
 These are full-system tests that sequentially test out algorithm nodes (pure_pursuit, disparity_extender, etc.) in the simulator.
 
+# Run using the following shell script
+
+```bash
+cd /racerbot_ws
+mkdir -p scripts
+#create a symbolic link to actual run_tests.sh
+ln -s ../src/racerbot_a/test/sim_tests/run_tests.sh scripts/run_tests.sh
+bash ./scripts/run_tests.sh
+```
+
+
 # Data Driven Testing
 
 [Data Driven Testing](https://www.geeksforgeeks.org/software-testing/data-driven-testing/) is the testing methodology being used for these simulator tests,
@@ -32,16 +43,6 @@ This is where our actual test logic/test suite lives.
 This is where our logging module lives.
 
 The logging currently displays the scenario, chosen parameters (corresponding to the config/algorithms.yaml) and whether the test was a success or failure.
-
-# Run using the following shell script
-
-```bash
-cd /racerbot_ws
-mkdir -p scripts
-#create a symbolic link to actual run_tests.sh
-ln -s ../src/racerbot_a/test/sim_tests/run_tests.sh scripts/run_tests.sh
-bash ./scripts/run_tests.sh
-```
 
 
 
