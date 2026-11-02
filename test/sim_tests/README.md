@@ -20,7 +20,7 @@ Something interesting to note is how we are configuring the map, which is done u
 ## 2. The config/algorithms.yaml file
 This file holds importance in that, besides simply containing our algorithms to be run, it specifies the parameters for each of those algorithm nodes we want to pass in. 
 
-To add a parameter to any algorithm node for when its later launched, simply add it in its' parameters section in the yaml.
+To add a parameter to any algorithm node for when its later launched, simply add it in its parameters section in the yaml.
 
 ## 3. The test_simulation.py file
 This is where our actual test logic/test suite lives. 
