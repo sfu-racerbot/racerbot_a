@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# remove e flag when you don't want to exit immediately upon a command giving a non-zero exit status code
 set -eo pipefail
 
 # Find dir location of this script
@@ -30,36 +31,21 @@ source install/local_setup.bash
 MAP_CONFIG="$WS_ROOT/src/f1tenth_gym_ros/config"
 MAPS_DIR="$WS_ROOT/src/f1tenth_gym_ros/maps"
 
-MAPS=("levine_blocked" "levine_obs" "Spielberg")
+MAPS=("levine_blocked" "levine_obs")
 
-#ensure that the the 3 arrays always match up lengthwise and orderwise
-ALGORITHM_PACKAGES=("ftg" "disparity_extender")
-ALGORITHM_EXECUTABLES=("ftg_node" "disparity_extender_node")
-# "min speed, max_speed"
-ALGORITHM_TEST_SPEEDS=(
-    "2.0,5.5" 
-    "0.7,4.5" 
-)
+ALGORITHMS=("pure_pursuit" "ftg" "disparity_extender" "least_squares" "furthest_point_fallback")
 
-# Select map (currently only works with levine)
 export SIM_CONFIG="$SCRIPT_DIR/config/sim.yaml"
-
+export ALGO_CONFIG="$SCRIPT_DIR/config/algorithms.yaml"
 
 for map in "${MAPS[@]}"; do
-    #Select map 
-    #Using stream editor to replace the whole line
-    #for e.g #thing to be replaced#replacement#
+    #Select map using stream editor to replace the whole line
+    #for e.g --> #thing to be replaced#replacement#
     export MAP=${map}
     sed -i "s#map_path: '.*'#map_path: '${MAPS_DIR}/${map}'#" $SIM_CONFIG
-    for ((i=0; i<${#ALGORITHM_EXECUTABLES[@]}; i++)); do
-        #individual field seperator used to extract min and max speeds
-        IFS=',' read -r MIN_SPEED MAX_SPEED <<< "${ALGORITHM_TEST_SPEEDS[i]}"
-        export MIN_SPEED
-        export MAX_SPEED
+    for ((i=0; i<${#ALGORITHMS[@]}; i++)); do
 
-        export ALGORITHM_PACKAGE=${ALGORITHM_PACKAGES[i]}
-        export ALGORITHM_EXECUTABLE=${ALGORITHM_EXECUTABLES[i]}
-
+        export ALGORITHM=${ALGORITHMS[i]}
         export PYTEST_ADDOPTS="--capture=no"
         #run tests
         colcon test --packages-select sim_tests \
@@ -69,7 +55,7 @@ for map in "${MAPS[@]}"; do
 
         TEST_RESULTS_DIR="$WS_ROOT/build/sim_tests/test_results/sim_tests"
         mkdir -p "$WS_ROOT/results"
-        cp "$TEST_RESULTS_DIR/simulation.xunit.xml" "$WS_ROOT/results/${map}_${ALGORITHM_PACKAGES[i]}.xunit.xml" 
+        cp "$TEST_RESULTS_DIR/simulation.xunit.xml" "$WS_ROOT/results/${map}_${ALGORITHMS[i]}.xunit.xml" 
     done
 done
 

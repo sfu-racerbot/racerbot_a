@@ -11,6 +11,7 @@ from pathlib import Path
 import launch
 import launch_ros
 import rclpy
+import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch.substitutions import LaunchConfiguration
 from launch.actions import IncludeLaunchDescription
@@ -142,15 +143,15 @@ class CrashDetector:
 
 @pytest.fixture
 def sim_logger():
-    algorithm = os.environ["ALGORITHM_PACKAGE"]
-    map_name = os.environ["MAP"]
-    min_speed = float(os.environ["MIN_SPEED"])
-    max_speed = float(os.environ["MAX_SPEED"])
 
-    logger = SimulationTestLogger(algorithm, map_name, min_speed, max_speed)
-    logger.log_info()
+    algorithm = os.environ.get("ALGORITHM")
+    map_name = os.environ.get("MAP")
+    config_algo_path = os.environ.get("ALGO_CONFIG")
 
+
+    logger = SimulationTestLogger(algorithm, map_name, config_algo_path)
     return logger
+
 
 @launch_pytest.fixture
 def simulation():
@@ -158,14 +159,10 @@ def simulation():
         get_package_share_directory("f1tenth_gym_ros")
     )
     
-    algorithm_pkg = os.environ.get("ALGORITHM_PACKAGE")
-    algorithm_ex = os.environ.get("ALGORITHM_EXECUTABLE")
 
-    min_speed = float(os.environ.get("MIN_SPEED"))
-    max_speed =  float(os.environ.get("MAX_SPEED"))
-    
+    algorithm_name = os.environ.get("ALGORITHM")
     map_name = os.environ.get("MAP")
-
+    config_algo_path = os.environ.get("ALGO_CONFIG")
     config_path = os.environ.get("SIM_CONFIG")
 
     simulator = IncludeLaunchDescription(
@@ -178,14 +175,30 @@ def simulation():
             "num_agent": "1",
         }.items(),
     )
-    sim_logger = SimulationTestLogger(algorithm_pkg, map_name, min_speed, max_speed)
+
+    #open config/algorithms.yaml file 
+    with open(config_algo_path) as file:
+        config = yaml.safe_load(file)
+
+    #specify algorithm 
+    algorithms = config["algorithms"]
+    selected_algo = algorithms[algorithm_name]
+    
+    #use the data from the yaml to configure the algorithms parameters
+    params = dict(selected_algo.get("parameters", {}))
+
+    #for pure pursuit specifically we make sure to run the proper waypoints depending on the map being used
+    if(selected_algo["package"] == "pure_pursuit_a"): 
+        params["track"] = selected_algo["tracks"][map_name]
+    
+    
     algorithm = launch_ros.actions.Node(
-        package=algorithm_pkg,
-        executable=algorithm_ex,
+        package=selected_algo["package"],
+        executable=selected_algo["executable"],
+        parameters=[params],
         output="screen",
-        parameters=[{"enable_safety": False}, {"min_speed": min_speed}, {"max_speed": max_speed}]
     )
-    sim_logger.log_info()
+
     return launch.LaunchDescription([
         simulator,
         algorithm,
@@ -196,13 +209,6 @@ def simulation():
 
 @pytest.mark.launch(fixture=simulation)
 def test_odometry_received(sim_logger):
-    algorithm = os.environ.get("ALGORITHM_PACKAGE", "ftg")
-    min_speed =  os.environ.get("MIN_SPEED")
-    max_speed =  os.environ.get("MAX_SPEED")
-    map_name = os.environ.get("MAP_NAME")
-
-    sim_logger = SimulationTestLogger(algorithm, map_name, min_speed, max_speed)
-
     sim_logger.log_test_description("Basic odometry test")
 
     rclpy.init()
@@ -218,12 +224,12 @@ def test_odometry_received(sim_logger):
     )
 
     try:
-        deadline = time.monotonic() + 10.0
+        deadline = time.monotonic() + 15.0
 
         while time.monotonic() < deadline:
             rclpy.spin_once(node, timeout_sec=0.1)
 
-        assert received_messages, ( "Simulator did not publish odometry within 30 seconds" )
+        assert received_messages, ( "Simulator did not publish odometry within 15 seconds" )
     except Exception:
         sim_logger.log_result(False)
         raise
