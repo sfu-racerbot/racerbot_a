@@ -6,6 +6,18 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
+    odom_topic_arg = DeclareLaunchArgument(
+        "odom_topic",
+        default_value="/odom",
+        description="Odometry topic (pose source in sim, wheel odom for speed when use_pf is true)",
+    )
+
+    use_pf_arg = DeclareLaunchArgument(
+        "use_pf",
+        default_value="true",
+        description="true = pose from particle filter (irl), false = pose from odom_topic (sim ground truth)",
+    )
+
     enable_safety_arg = DeclareLaunchArgument(
         "enable_safety",
         default_value="true",
@@ -68,6 +80,8 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            odom_topic_arg,
+            use_pf_arg,
             enable_safety_arg,
             track_arg,
             lookahead_base_arg,
@@ -86,6 +100,8 @@ def generate_launch_description():
                 output="screen",
                 parameters=[
                     {
+                        "odom_topic": LaunchConfiguration("odom_topic"),
+                        "use_pf": LaunchConfiguration("use_pf"),
                         "enable_safety": LaunchConfiguration("enable_safety"),
                         "track": LaunchConfiguration("track"),
                         "lookahead_base": LaunchConfiguration("lookahead_base"),

@@ -17,7 +17,7 @@ ros2 launch pure_pursuit_a pure_pursuit_a_launch.py track:=mapname
 ## Launching in sim
 
 ```bash
-ros2 launch pure_pursuit_a pure_pursuit_a_launch.py track:=mapname enable_safety:=false
+ros2 launch pure_pursuit_a pure_pursuit_a_launch.py track:=mapname enable_safety:=false odom_topic:=/ego_racecar/odom use_pf:=false
 ```
 
 ## Safety Node

@@ -295,3 +295,112 @@ By default, the PF command above uses the simulator's existing map. To use a SLA
 6. Launch SLAM or PF using the commands above.
 7. **SLAM:** Display `/slam_map`, explore the track, and save the map.
 8. **PF:** Display `/map`, `/pf/viz/inferred_pose`, and `/pf/viz/particles`.
+
+
+---
+
+
+## 1. Open source implementation and architecture 
+
+This implementation plan Is adapted from [`this repository`](https://github.com/CL2-UWaterloo/Raceline-Optimization), which generates an offline optimized race line using ordered track reference and boundary widths. It uses helper libraries to for spline generation, curvature optimization and velocity calculations (velocity calculations are not our main concern for now, we are focused more on the race line generation).
+
+
+
+
+## 2. Algorithm
+
+### Spline
+A spline is a set of low degree polynomials (usually cubics) fit onto a path. 
+- Polynomials must be be continuous to prevent any sharp turns and maintain a smooth track path.
+<img width="688" height="327" alt="Cubic spline image" src="assets/spline%20image.png" />
+
+
+### Architecture:
+1. Centre line generation via. `generator.py`, this is the reference path.
+2. Apply spline fitting onto the reference path (Ensuring that cubic functions are continuous across full path)
+3. Optimize sideways offset from the reference to reduce curvature while ensuring that physical constraints and track boundaries are considered.
+4. Using the new optimized offset spline, regenerate new waypoints on the new spline's optimized location.
+
+
+### Step 1: 
+After SLAM maps out the track, generate centre line waypoints with `generator.py`, this is the reference path.
+
+
+### Step 2:
+The [`spline_approximation.py`](https://github.com/CL2-UWaterloo/trajectory_planning_helpers/blob/fde6cee/trajectory_planning_helpers/spline_approximation.py) script interpolates the input and estimates a smooth spline onto our pre-generated waypoints (at centre line). It adjusts for reference displacement and reduces the centreline noise for further optimization.
+
+Using [`calc_splines.py`](https://github.com/CL2-UWaterloo/trajectory_planning_helpers/blob/fde6cee/trajectory_planning_helpers/calc_splines.py), we can construct the actual piecewise cubic curves for the reference line.
+
+```text
+x_i(t) = a_i + b_i t + c_i t² + d_i t³
+y_i(t) = e_i + f_i t + g_i t² + h_i t³
+```
+
+### Step 3:
+
+To optimize the path, we use [`opt_min_curv.py`](https://github.com/CL2-UWaterloo/trajectory_planning_helpers/blob/fde6cee/trajectory_planning_helpers/opt_min_curv.py) to move reference points sideways and find a position for the spline such that curvature is minimized and path completion is fastest.
+
+```text
+optimized point = reference point + lateral offset × unit normal
+```
+
+A quadratic program chooses offsets to reduce a squared-curvature approximation. Corridor constraints subtract half the effective vehicle width from available left/right widths. 
+
+### Step 4:
+Finally to reconstruct the shifted points and resample (regenerate waypoints at optimized spline position) we use [`create_raceline.py`](https://github.com/CL2-UWaterloo/trajectory_planning_helpers/blob/fde6cee/trajectory_planning_helpers/create_raceline.py).
+
+### Step 5 (future)
+For now, we are focusing only on the waypoint generation, though the [`calc_vel_profile.py`](https://github.com/CL2-UWaterloo/trajectory_planning_helpers/blob/fde6cee/trajectory_planning_helpers/calc_vel_profile.py) script allows us to build a full velocity profile function for the optimized race line. The script uses curvature, lateral acceleration, motor acceleration, braking, drag, and maximum speed. Forward/backward passes account for acceleration and braking around the closed lap.
+
+Finally, [F110 exporter](https://github.com/CL2-UWaterloo/Raceline-Optimization/blob/9290c5d/helper_funcs_glob/src/export_traj_race.py) writes `x,y,speed` and produces the csv for the optimized raceline. For now we can ignore the `speed` parameter as we will not be using it yet.
+
+
+
+## 3. Implementation to `racerbot_a`
+
+We can add Waterloo’s optimizer after our existing centreline generator. The optimizer runs offline after saving the SLAM map, then exports new waypoints for our C++ Pure Pursuit controller.
+
+### Architecture:
+
+1. Save the SLAM map as YAML and PNG/PGM.
+2. Generate centreline waypoints and track widths using `generator.py`.
+3. Run minimum-curvature optimization on the centreline.
+4. Validate the optimized path against the original map.
+5. Export the validated waypoints as a CSV.
+6. Load the CSV into Pure Pursuit.
+
+Mapping, localization, Pure Pursuit and braking continue running through ROS. The Python optimizer can run in a separate environment or container with pinned dependencies, keeping its dependencies separate from ROS 2 Humble.
+
+### Centreline input
+
+Our existing [`generator.py`](../src/waypoint_generator/waypoint_generator/generator.py) produces:
+
+```text
+x_m, y_m, w_tr_right_m, w_tr_left_m
+```
+These columns match the four-column input accepted by Waterloo’s [`import_track()`](https://github.com/CL2-UWaterloo/Raceline-Optimization/blob/9290c5d/helper_funcs_glob/src/import_track.py). All values are in metres. The widths describe the available space on each side of the reference point, before subtracting vehicle clearance.
+
+This means we can reuse our current centreline generator instead of using Waterloo’s map-processing code.
+
+### Pure Pursuit output
+
+Our current [`PurePursuit::load_waypoints()`](../src/pure_pursuit_a/src/pure_pursuit_a_node.cpp) reads only `x,y`. Speed is calculated from steering, so we can first integrate the optimized path without adding waypoint speeds.
+
+For future speed profile support, we would need to explicitly load `v_mps` and select or interpolate speed based on the car’s progress along the path. The CSV formats must have three columns, whereas our centreline file has **right track width**, not speed.
+
+### Coordinates and path formatting
+
+Before loading the optimized CSV, we need to check these things:
+
+1.  **Loop closure:** (Waterloo's main pipeline adds a repeated endpoint, we must remove this.)
+2.  **Driving direction:** Set the direction before optimization. If reversing an existing path, we must also swap left/right widths, as Waterloo's import reversal only reverses the rows.
+3.  **Coordinate frame:** Pure Pursuit reads `/ego_racecar/odom` directly without transforming the pose. The pose and waypoint coordinates must use the same frame. Our simulator SLAM configuration uses `slam_map`.
+### Integration changes
+
+
+### Validation and braking
+
+WE must also check the optimized path against the original occupancy map to ensure that the trackline is possible. We must consider the segments between waypoints and the vehicle footprint. A smooth spline alone does not guarantee wall clearance or a turn the car can physically follow.
+
+Moreover, the offline optimizer does not avoid moving vehicles, if another car enters the path, our robot will continue to run the slowing and/or braking code of the runtime safety system.
+

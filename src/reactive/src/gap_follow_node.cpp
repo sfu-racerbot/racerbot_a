@@ -67,12 +67,18 @@ void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_ms
 
 void GapFollowNode::drive_best_point(const reactive::msg::Gap::ConstSharedPtr gap_msg)
 {
-
     // Publishing to drive
     ackermann_msgs::msg::AckermannDriveStamped drive_msg;
     drive_msg.header.stamp = this->now();
     drive_msg.drive.steering_angle = gap_msg->target_angle;
-    drive_msg.drive.speed = get_combined_speed(gap_msg->target_angle, gap_msg->target_range);
+
+    double speed = get_combined_speed(gap_msg->target_angle, gap_msg->target_range);
+    if (gap_msg->obstacle_ahead)
+    {
+        speed = min_speed_;
+    }
+
+    drive_msg.drive.speed = speed;
     drive_pub_->publish(drive_msg);
 }
 
@@ -124,7 +130,14 @@ void GapFollowNode::least_squares_pathfinding(const reactive::msg::Gap::ConstSha
     ackermann_msgs::msg::AckermannDriveStamped drive_msg;
     drive_msg.header.stamp = this->now();
     drive_msg.drive.steering_angle = commanded_steering_angle_;
-    drive_msg.drive.speed = get_combined_speed(commanded_steering_angle_, gap_msg->target_range);
+
+    double speed = get_combined_speed(commanded_steering_angle_, gap_msg->target_range);
+    if (gap_msg->obstacle_ahead)
+    {
+        speed = min_speed_;
+    }
+
+    drive_msg.drive.speed = speed;
     drive_pub_->publish(drive_msg);
 }
 
@@ -162,8 +175,8 @@ double GapFollowNode::get_curve_output(double x, Eigen::VectorXd coefficients)
 
 double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, Eigen::VectorXd theta, double max_lookahead)
 {
-    double theta_min = std::max(theta.minCoeff(), -max_steering_angle_);
-    double theta_max = std::min(theta.maxCoeff(), max_steering_angle_);
+    double theta_min = theta.minCoeff();
+    double theta_max = theta.maxCoeff();
 
     double best_theta = theta_min;
     double best_range = -std::numeric_limits<double>::max();
@@ -215,10 +228,20 @@ double GapFollowNode::range_to_speed_function(double range)
 
 double GapFollowNode::get_combined_speed(double angle, double range)
 {
-    double angle_speed = angle_to_speed_function(angle);
-    double range_speed = range_to_speed_function(range);
+    static double last_speed = 0.0; // Proxy for current vehicle velocity
 
-    return std::min(angle_speed, range_speed);
+    double angle_speed = angle_to_speed_function(angle);
+    
+    // Braking penalty: Shrink the perceived safe range if moving quickly
+    double lookahead_penalty = 0.6 * last_speed; 
+    double effective_range = std::max(0.0, range - lookahead_penalty);
+    
+    double range_speed = range_to_speed_function(effective_range);
+
+    double final_speed = std::min(angle_speed, range_speed);
+    last_speed = final_speed; // Store for the next iteration
+    
+    return final_speed;
 }
 
 void GapFollowNode::safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPtr safety_brake_msg)

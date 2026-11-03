@@ -23,9 +23,11 @@ This file explains how to make, modify, and change maps for the F1TENTH gym simu
 > Only change `resolution` and `image`, as other metrics are related to the greyscale factor of the map. The value for `resolution` refers to meters per pixel. (E.g. `0.05` means each pixel is a 5 cm x 5 cm square in the simulator.)
 
 
-## Changing Maps
+## Replacing F1TENTH Gym ROS Maps with Racerbot A Maps
 
-1. To change maps, navigate to `/racerbot_ws/src/f1tenth_gym_ros/config/sim.yaml`.
-2. Find the `map_path` parameter and change it to `map/<new-map-name>_greyscale`.
-   - *Example:* Line 51: `map_path: 'maps/circularTrack_greyscale'`
-3. Build and source your workspace to run it in the simulator.
+To replace the default F1TENTH Gym ROS maps with the maps provided by `racerbot_a`, run:
+
+```bash
+cd /racerbot_ws/src
+rm -rf f1tenth_gym_ros/maps/*
+cp -a racerbot_a/maps/. f1tenth_gym_ros/maps/

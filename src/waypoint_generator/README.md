@@ -72,6 +72,3 @@ The controller's driving logic remains unfinished; loading a CSV does not verify
 
 - `--direction`: `ccw` (default) or `cw`, selecting travel direction around the loop.
 
-To do:
-
-- Update code in `pure_pursuit` to include parameter for CSV file.

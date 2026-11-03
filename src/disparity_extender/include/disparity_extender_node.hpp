@@ -18,6 +18,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr safety_brake_sub_;
     
     float prev_steer_ = 0.0f;
+    double max_steering_angle_; // max angle that the car can steer (rad)
     double max_lidar_range_;
     double car_width_;
     double car_width_extended_;

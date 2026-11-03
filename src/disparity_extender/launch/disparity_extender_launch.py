@@ -14,7 +14,7 @@ def generate_launch_description():
 
     max_lidar_range_arg = DeclareLaunchArgument(
         "max_lidar_range",
-        default_value="25.0",
+        default_value="10.0",
         description="Maximum LiDAR range considered (meters)",
     )
 
@@ -26,7 +26,7 @@ def generate_launch_description():
 
     car_width_extended_arg = DeclareLaunchArgument(
         "car_width_extended",
-        default_value="0.65",
+        default_value="0.85",
         description="Extended car width used for gap/bubble computation (meters)",
     )
 
@@ -50,13 +50,13 @@ def generate_launch_description():
 
     max_speed_arg = DeclareLaunchArgument(
         "max_speed",
-        default_value="3.0",
+        default_value="5.5",
         description="Maximum forward speed allowed in meters per second",
     )
 
     min_speed_arg = DeclareLaunchArgument(
         "min_speed",
-        default_value="0.5",
+        default_value="2.0",
         description="Minimum forward speed allowed in meters per second",
     )
 
@@ -87,6 +87,12 @@ def generate_launch_description():
         description="If true, remap /drive -> /opp_drive and /scan -> /opp_scan",
     )
 
+    max_steering_angle_arg = DeclareLaunchArgument(
+        "max_steering_angle",
+        default_value="0.349",
+        description="Maximum steering angle in radians",
+    )
+
     drive_topic = IfElseSubstitution(opponent_car, "/opp_drive", "/drive")
     scan_topic = IfElseSubstitution(opponent_car, "/opp_scan", "/scan")
 
@@ -105,6 +111,7 @@ def generate_launch_description():
             alpha_arg,
             wheelbase_arg,
             max_lateral_acc_arg,
+            max_steering_angle_arg,
             # Launch disparity_extender_node
             Node(
                 package="disparity_extender",
@@ -124,6 +131,7 @@ def generate_launch_description():
                     {"alpha": LaunchConfiguration("alpha")},
                     {"wheelbase": LaunchConfiguration("wheelbase")},
                     {"max_lateral_acc": LaunchConfiguration("max_lateral_acc")},
+                    {"max_steering_angle": LaunchConfiguration("max_steering_angle")},
                 ],
                 remappings=[("/drive", drive_topic), ("/scan", scan_topic)],
             ),

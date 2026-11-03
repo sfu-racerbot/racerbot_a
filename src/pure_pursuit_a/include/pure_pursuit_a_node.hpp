@@ -22,7 +22,11 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr safety_brake_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr speed_sub_;
     std::vector<Waypoint> waypoints_;
+    bool use_pf_;                 // false = sim ground truth, true = particle filter (irl)
+    std::string odom_topic_;
+    double current_speed_ = 0.0;
     bool enable_safety_;
     bool safety_brake_engaged_;
     double safety_bubble_scale_;
@@ -36,6 +40,8 @@ private:
     double max_speed_;             // speed on straights (m/s)
     double min_speed_;             // speed at full steering lock (m/s)
     bool initialized_ = false;     // false until first odom, then closest waypoint is found once
+
+    void speed_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg);
 
     /// @brief Runs everytime something is published to the safety brake topic
     void safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPtr safety_brake_msg);

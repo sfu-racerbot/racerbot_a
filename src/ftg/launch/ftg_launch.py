@@ -96,6 +96,12 @@ def generate_launch_description():
         description="Maximum turning angle in radians."
     )
 
+    max_lateral_acc_arg = DeclareLaunchArgument(
+        "max_lateral_acc",
+        default_value="3.5",
+        description="Maximum lateral acceleration in m/s^2",
+    )
+
     opponent_car = LaunchConfiguration("opponent_car")
 
     opponent_car_arg = DeclareLaunchArgument(
@@ -125,6 +131,8 @@ def generate_launch_description():
             wheelbase_arg,
             lookahead_max_arg,
             steering_deadzone_arg,
+            steering_max_angle_arg,
+            max_lateral_acc_arg,
             # Launch follow the gap
             Node(
                 package="ftg",
@@ -146,6 +154,8 @@ def generate_launch_description():
                     {"wheelbase": LaunchConfiguration("wheelbase")},
                     {"lookahead_max": LaunchConfiguration("lookahead_max")},
                     {"steering_deadzone": LaunchConfiguration("steering_deadzone")},
+                    {"steering_angle_max": LaunchConfiguration("steering_angle_max")},
+                    {"max_lateral_acc": LaunchConfiguration("max_lateral_acc")},
                 ],
                 remappings=[("/drive", drive_topic), ("/scan", scan_topic)],
             ),

@@ -1,0 +1,41 @@
+algorithms:
+  ftg:
+    package: ftg
+    executable: ftg_node
+    parameters:
+      enable_safety: false
+
+  disparity_extender:
+    package: disparity_extender
+    executable: disparity_extender_node
+    parameters:
+      enable_safety: false
+      min_speed: 0.7
+      max_speed: 4.5
+
+  pure_pursuit:
+    package: pure_pursuit_a
+    executable: pure_pursuit_a_node
+    parameters:
+      enable_safety: false
+      use_pf: false
+      odom_topic: /ego_racecar/odom
+    tracks:
+      Spielberg: spielberg
+      levine: levine2
+      levine_blocked: levine2
+      levine_obs: levine2
+
+  least_squares:
+    package: reactive
+    executable: gap_follow_node 
+    parameters:
+      enable_safety: false
+      use_fallback_follow_method: false
+  
+  furthest_point_fallback:
+    package: reactive
+    executable: gap_finder_node
+    parameters:
+      enable_safety: false
+      use_fallback_follow_method: true

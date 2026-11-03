@@ -6,20 +6,22 @@ DisparityExtenderNode::DisparityExtenderNode() : Node("disparity_extender_node")
     RCLCPP_INFO(this->get_logger(), "Disparity Extender node started");
 
     // Declare with a default value
-    this->declare_parameter("max_lidar_range", 25.0);
+    this->declare_parameter("max_steering_angle", 0.349);
+    this->declare_parameter("max_lidar_range", 10.0);
     this->declare_parameter("car_width", 0.4);
-    this->declare_parameter("car_width_extended", 0.65);
+    this->declare_parameter("car_width_extended", 0.85);
     this->declare_parameter("disparity_threshold", 1.0);
     this->declare_parameter("fov_half_angle_deg", 90.0);
     this->declare_parameter("minimum_gap_threshold", 0.1);
-    this->declare_parameter("max_speed", 3.0);
-    this->declare_parameter("min_speed", 0.5);
+    this->declare_parameter("max_speed", 5.5);
+    this->declare_parameter("min_speed", 2.0);
     this->declare_parameter("alpha", 0.8);
     this->declare_parameter("wheelbase", 0.33);
     this->declare_parameter("max_lateral_acc", 3.5);
     this->declare_parameter("enable_safety", true);
 
     // Read into member variables
+    max_steering_angle_ = this->get_parameter("max_steering_angle").as_double();
     max_lidar_range_ = this->get_parameter("max_lidar_range").as_double();
     car_width_ = this->get_parameter("car_width").as_double();
     car_width_extended_ = this->get_parameter("car_width_extended").as_double();
@@ -231,7 +233,7 @@ void DisparityExtenderNode::drive_best_point(const float range, const float stee
 {
     float steer = static_cast<float>(alpha_) * steering_angle + (1.0f - alpha_) * prev_steer_;
     prev_steer_ = steer;
-
+    steer = std::clamp(steer, static_cast<float>(-max_steering_angle_), static_cast<float>(max_steering_angle_));
     // Limit 1: slow down for sharp turns (v = sqrt(a * R), R = wheelbase / tan(steer))
     float abs_tan = std::tan(std::abs(steer));
     float v_turn = max_speed_;

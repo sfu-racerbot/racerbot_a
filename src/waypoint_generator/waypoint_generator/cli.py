@@ -17,8 +17,8 @@ def waypoint_directory():
         for root in (start, *start.parents):
             packages = root / "src"
             if all((packages / name / "package.xml").is_file()
-                   for name in ("pure_pursuit", "waypoint_generator")):
-                return packages / "pure_pursuit" / "waypoints"
+                   for name in ("pure_pursuit_a", "waypoint_generator")):
+                return packages / "pure_pursuit_a" / "waypoints"
 
             # stop here so we do not pick up a different repo
             if (root / ".git").exists():
@@ -72,7 +72,7 @@ def main(argv=None):
         return 1
 
     print(f"Wrote {len(data)} waypoints to {output}; geometry checked, driving unverified")
-    print(f"From racerbot_a, rebuild pure_pursuit and source install/setup.bash; select track:={name}")
+    print(f"From racerbot_a, rebuild pure_pursuit_a and source install/setup.bash; select track:={name}")
     return 0
 
 

@@ -13,6 +13,8 @@
 PurePursuit::PurePursuit() : Node("pure_pursuit_a_node")
 {
     // ROS2 parameters
+    this->declare_parameter("odom_topic", "/odom");
+    this->declare_parameter("use_pf", true);
     this->declare_parameter("enable_safety", true);
     this->declare_parameter("track", "levine");
     this->declare_parameter("lookahead_base", 1.0);
@@ -24,6 +26,8 @@ PurePursuit::PurePursuit() : Node("pure_pursuit_a_node")
     this->declare_parameter("max_speed", 4.0);
     this->declare_parameter("min_speed", 1.5);
 
+    odom_topic_ = this->get_parameter("odom_topic").as_string();
+    use_pf_ = this->get_parameter("use_pf").as_bool();
     enable_safety_ = this->get_parameter("enable_safety").as_bool();
     const std::string track = this->get_parameter("track").as_string();
     lookahead_base_ = this->get_parameter("lookahead_base").as_double();
@@ -47,9 +51,18 @@ PurePursuit::PurePursuit() : Node("pure_pursuit_a_node")
     load_waypoints(path);
 
     // localization
+    // pose source: PF output on the real car, ground truth in sim
+    const std::string pose_topic = use_pf_ ? "/pf/pose/odom" : odom_topic_;
     odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-        "/ego_racecar/odom", 10,
+        pose_topic, 10,
         std::bind(&PurePursuit::odom_callback, this, std::placeholders::_1));
+
+    // PF usually doesn't fill in twist, so take speed from wheel odom
+    if (use_pf_) {
+        speed_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+            odom_topic_, 10,
+            std::bind(&PurePursuit::speed_callback, this, std::placeholders::_1));
+    }
 
     drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
 
@@ -58,6 +71,11 @@ PurePursuit::PurePursuit() : Node("pure_pursuit_a_node")
 
 void PurePursuit::safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPtr safety_brake_msg) {
     safety_brake_engaged_ = safety_brake_msg->data;
+}
+
+void PurePursuit::speed_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
+{
+    current_speed_ = msg->twist.twist.linear.x;
 }
 
 void PurePursuit::load_waypoints(const std::string& path)
@@ -147,7 +165,7 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
         1.0 - 2.0 * (q.y * q.y + q.z * q.z));
 
     // forward speed and speed-scaled lookahead
-    const double speed = msg->twist.twist.linear.x;
+    const double speed = use_pf_ ? current_speed_ : msg->twist.twist.linear.x;
     const double L = currentLookahead(speed);
 
     // First odom msg finds the closest waypoint to give the last_goal_index_ to start finding the waypoint from
