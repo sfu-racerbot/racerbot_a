@@ -18,7 +18,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     this->declare_parameter("degree", 2);
     this->declare_parameter("steering_gain", 1.0);
     this->declare_parameter("k_samples", 200);
-    this->declare_parameter("max_steering_angle", 45.0);
+    this->declare_parameter("max_steering_angle", 20.0);
     this->declare_parameter("max_speed", 4.0);
     this->declare_parameter("min_speed", 0.5);
     this->declare_parameter("hysteresis_alpha", 0.3);
@@ -39,7 +39,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     min_speed_ = this->get_parameter("min_speed").as_double();
     hysteresis_alpha_ = this->get_parameter("hysteresis_alpha").as_double();
     speed_curve_scale_ = this->get_parameter("speed_curve_scale").as_double();
-    max_slew_rate_ = this->get_parameter("max_slew_rate").as_double();
+    max_slew_rate_ = DEG2RAD(this->get_parameter("max_slew_rate").as_double());
 }
 
 void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_msg)
@@ -55,7 +55,7 @@ void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_ms
         return;
     }
 
-    if (use_fallback_method_)
+    if (use_fallback_method_ || gap_msg->obstacle_ahead)
     {
         drive_best_point(gap_msg);
     }
@@ -185,8 +185,11 @@ double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, Eigen
     {
         double t = theta_min + (theta_max - theta_min) * i / k_samples_;
         double predicted_r = get_curve_output(t, coefficients);
-        if (predicted_r >= max_lookahead)
+
+        if (predicted_r > max_lookahead)
+        {
             continue;
+        }
 
         if (predicted_r > best_range)
         {

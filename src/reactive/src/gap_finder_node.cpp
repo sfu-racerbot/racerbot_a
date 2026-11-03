@@ -191,11 +191,10 @@ vector<float> GapFinderNode::preprocess_lidar(const sensor_msgs::msg::LaserScan:
     // Capping values past max_lidar_range, and rejecting values past fov angle range
     for (size_t i = 0; i < ranges.size(); ++i)
     {
-        if (std::abs(scan_msg->angle_min + scan_msg->angle_increment * i) > fov_half_angle_)
-        {
-            ranges[i] = 0;
-        }
-        ranges[i] = std::min(ranges[i], static_cast<float>(max_lidar_range_));
+        float r = ranges[i];
+        if (!std::isfinite(r))
+            r = (std::isnan(r) || r < 0) ? 0.0f : max_lidar_range_; // NaN = blocked, +inf = free
+        ranges[i] = std::clamp(r, 0.0f, static_cast<float>(max_lidar_range_));
     }
 
     return ranges;
