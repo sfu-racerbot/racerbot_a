@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-#set -eo pipefail
-set -o pipefail
+# remove e flag when you don't want to exit immediately upon a command giving a non-zero exit status code
+set -eo pipefail
 
 # Find dir location of this script
 SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
@@ -32,9 +32,7 @@ MAP_CONFIG="$WS_ROOT/src/f1tenth_gym_ros/config"
 MAPS_DIR="$WS_ROOT/src/f1tenth_gym_ros/maps"
 
 MAPS=("levine_blocked" "levine_obs")
-
 ALGORITHMS=("pure_pursuit" "ftg" "disparity_extender" "least_squares" "furthest_point_fallback")
-
 export SIM_CONFIG="$SCRIPT_DIR/config/sim.yaml"
 export ALGO_CONFIG="$SCRIPT_DIR/config/algorithms.yaml"
 
@@ -47,9 +45,7 @@ for map in "${MAPS[@]}"; do
 
         export ALGORITHM=${ALGORITHMS[i]}
         export PYTEST_ADDOPTS="--capture=no"
-        #run tests
-        # Removed this command from the colcon test to one failure doesnt stop all future runs
-        # 
+        #run tests 
         colcon test --packages-select sim_tests \
             --return-code-on-test-failure \
             --event-handlers console_direct+
