@@ -92,10 +92,9 @@ class LoopDetector:
 
 ## Takes in lidar data and odometry to determine if a car has collided with anything. If so ends the test as a failure
 class CrashDetector:
-    def __init__(self, crash_threshold = 0.275, slowdown_threshold = 0.1):
-        # The extra % distance youd like to give around the car to add a small bubble around the physical diameter of the car
-        #
-        #
+    def __init__(self, crash_threshold = 0.0, slowdown_threshold = 0.1):
+        # The extra % distance youd like to give around the car to add a small bubble around the physical diameter of the car. Default is
+        # 0.0 to create the tightest wrap around the car possible.
         self.crash_threshold = crash_threshold
         self.car_half_width = 0.16
 
@@ -160,11 +159,6 @@ class CrashDetector:
             config = yaml.safe_load(file)
 
         algorithms = config["algorithms"]
-        #algorithms = os.environ["ALGORITHM"]
-        #map_name = os.environ["MAP"]
-        # min_speed = float(os.environ["MIN_SPEED"])
-        # max_speed = float(os.environ["MAX_SPEED"])
-
         selected_algo = algorithms[algorithm_name]
         params = dict(selected_algo.get("parameters", {}))
         min_speed = float(params.get("min_speed", 0.0))
@@ -182,14 +176,44 @@ class CrashDetector:
         self.summary = failure_message
 
 
+def check_nodes_life(node, request, last_odom, start_time):
+
+    current_time = time.monotonic()
+
+    # Giving the drivers and the simulator some time to startup so we dont treat a non started node as a crashed node
+    start_grace_period = 5.0
+    if current_time - start_time < start_grace_period:
+        return
+
+
+    # Check the autonomous driving topic to make sure it' still running.
+    # Assuming we arent trying to runs the tests while also running other driving nodes then this should detect a failed
+    # driving node. This could be done using timestamps like the odom test but that would require more resources being 
+    # put towards keeping a constant watch on the drive topic which felt unessesary and counterproductive especially
+    # if we plan on running this on the limited hardware assigned to github runners
+    if node.count_publishers("/drive") == 0:
+        request.config.program_summary = "The driving algorithm crashed or never started"
+        assert False, ("The driving algorithm crashed or never started")
+
+    # Due to the fact that the sim topics seem to launch quite a bit slower than the driving nodes and that we're already reading all the 
+    # odometry messages so i elected to use timestamps here instead of just checking count_publishers. The simulator is considered crashed
+    # if there has not been a message from it in the last two seconds or if it never recieves a message
+    # Checking to make sure atleast one odom message has been sent during the start grace period
+    if last_odom[0] == -1:
+        request.config.program_summary = "The never started or crashed early"
+        assert False ("The never started or crashed early")
+    
+    time_since_odom = current_time - last_odom[0]
+    if time_since_odom > 2.0:
+        request.config.program_summary = "The simulator crashed mid test"
+        assert False, "The simulator crashed mid test"
+
 @pytest.fixture
 def sim_logger():
 
     algorithm = os.environ.get("ALGORITHM")
     map_name = os.environ.get("MAP")
     config_algo_path = os.environ.get("ALGO_CONFIG")
-
-
     logger = SimulationTestLogger(algorithm, map_name, config_algo_path)
     return logger
 
@@ -199,8 +223,6 @@ def simulation():
     sim_share = Path(
         get_package_share_directory("f1tenth_gym_ros")
     )
-    
-
     algorithm_name = os.environ.get("ALGORITHM")
     map_name = os.environ.get("MAP")
     config_algo_path = os.environ.get("ALGO_CONFIG")
@@ -265,7 +287,7 @@ def test_odometry_received(sim_logger):
     )
 
     try:
-        deadline = time.monotonic() + 15.0
+        deadline = time.monotonic() + 7.5
 
         while time.monotonic() < deadline:
             rclpy.spin_once(node, timeout_sec=0.1)
@@ -286,6 +308,10 @@ def test_odometry_received(sim_logger):
 @pytest.mark.launch(fixture=simulation)
 def test_loop_detected(request):
     rclpy.init()
+    # Reseting the config summaries so a previous summary doesnt bleed through into a new test
+    request.config.crash_summary = ""
+    request.config.loop_summary=""
+    request.config.program_summary=""
     node = rclpy.create_node("main_test")
 
     detector = LoopDetector(radius=1.0, leave_dist=3.0)
@@ -294,6 +320,9 @@ def test_loop_detected(request):
     lap_pub = node.create_publisher(String, "/lap_detected", 10)
     received = []
 
+    # counter variable to keep track of how long its been since the simulator sent a scan message. 
+    # a list instead of a variable becuase variables inside of the odom_cb definition were being treated as local and not global
+    last_odom_message = [-1]
     # callback function for the bubble crash detection
     def lidar_sub(msg):
         #ranges = msg.ranges
@@ -312,14 +341,20 @@ def test_loop_detected(request):
         new_measured_speed = msg.twist.twist.linear.x
         crash_detector.detect_crash_slowdown(new_measured_speed)
 
+        last_odom_message[0] = time.monotonic()
+
     node.create_subscription(Odometry, "/ego_racecar/odom", odom_cb, 10)
     node.create_subscription(LaserScan, "/scan", lidar_sub, 10)
 
+    start_time = time.monotonic()
+    
     try:
-        deadline = time.monotonic() + 30.0
-        while (time.monotonic() < deadline and not(crash_detector.crash_detected) and (detector.laps < 2)):
+        time_offset = 100
+        deadline = time.monotonic() + time_offset
+        # While loop ends if we hit the timeout, finish a lap, or crash. 
+        while (time.monotonic() < deadline and not(crash_detector.crash_detected) and (detector.laps <= 2)):
             rclpy.spin_once(node, timeout_sec=0.1)
-            #assert not(crash_detector.crash_detected), "Crash Detected During The Run"
+            check_nodes_life(node, request, last_odom_message, start_time)
 
     finally:
         request.config.loop_summary = detector.summary()   # saved for the report
