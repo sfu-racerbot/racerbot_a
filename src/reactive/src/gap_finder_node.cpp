@@ -9,7 +9,7 @@ GapFinderNode::GapFinderNode() : Node("gap_finder_node")
     this->declare_parameter("max_lidar_range", 10.0);
     this->declare_parameter("car_width_extended", 0.55);
     this->declare_parameter("disparity_threshold", 1.5);
-    this->declare_parameter("fov_half_angle_deg", 90.0);
+    this->declare_parameter("fov_half_angle_deg", 135.0);
     this->declare_parameter("minimum_gap_threshold", 0.1);
     this->declare_parameter("obstacle_distance", 2.0);
     this->declare_parameter("obstacle_edge_jump", 0.5);
@@ -158,12 +158,30 @@ bool GapFinderNode::detect_obstacle(const sensor_msgs::msg::LaserScan::ConstShar
 
 bool GapFinderNode::update_obstacle_state(bool detected)
 {
-    if (detected)
-        obstacle_hold_counter_ = obstacle_hold_frames_;
-    else if (obstacle_hold_counter_ > 0)
-        --obstacle_hold_counter_;
+    bool prev_state = (obstacle_hold_counter_ > 0);
 
-    return obstacle_hold_counter_ > 0;
+    if (detected)
+    {
+        obstacle_hold_counter_ = obstacle_hold_frames_;
+    }
+    else if (obstacle_hold_counter_ > 0)
+    {
+        --obstacle_hold_counter_;
+    }
+
+    bool current_state = (obstacle_hold_counter_ > 0);
+
+    // Log only on state transitions to avoid spamming the console
+    if (!prev_state && current_state)
+    {
+        RCLCPP_WARN(this->get_logger(), "Obstacle detected ahead! Engaging braking override.");
+    }
+    else if (prev_state && !current_state)
+    {
+        RCLCPP_INFO(this->get_logger(), "Obstacle cleared. Resuming normal gap following speed.");
+    }
+
+    return current_state;
 }
 
 vector<float> GapFinderNode::preprocess_lidar(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
@@ -202,11 +220,16 @@ void GapFinderNode::extend_obstacles(const sensor_msgs::msg::LaserScan::ConstSha
 
             if (closer_range > 1e-3f) // avoid divide-by-zero / near-zero blowup
             {
-                double theta = 2.0 * std::atan2(car_width_extended_ / 2.0, closer_range);
-                theta = std::min(theta, M_PI); // also cap max bubble angle as a safety net
+                double dynamic_width = car_width_extended_;
+                if (closer_range < 1.0f)
+                {
+                    dynamic_width = std::max(car_width_extended_ * closer_range, 0.2);
+                }
+
+                double theta = 2.0 * std::atan2(dynamic_width / 2.0, closer_range);
+                theta = std::min(theta, M_PI / 2.0);
 
                 size_t index_increment = static_cast<size_t>((theta / scan_msg->angle_increment) / 2.0);
-
                 size_t start = (i > index_increment) ? i - index_increment : 0;
                 size_t end = std::min(i + index_increment + 1, ranges.size());
 
@@ -257,15 +280,22 @@ std::pair<int, int> GapFinderNode::find_furthest_gap(const sensor_msgs::msg::Las
             continue; // gap too narrow for the car, skip it
         }
 
-        // Gap is valid - check if it contains a further point than the best gap found so far
-        for (size_t j = gap_start; j < gap_end; ++j)
+        // Gap is valid - Score it based on depth, width, and center alignment
+        float max_depth = *std::max_element(ranges.begin() + gap_start, ranges.begin() + gap_end);
+        double gap_center_angle = scan_msg->angle_min + scan_msg->angle_increment * (gap_start + gap_end) / 2.0;
+        
+        // Tune these weights during track testing
+        const double w_depth = 1.0; 
+        const double w_width = 0.05; 
+        const double w_angle = 1.5; // High penalty for gaps far to the side
+        
+        double score = (w_depth * max_depth) + (w_width * (gap_end - gap_start)) - (w_angle * std::abs(gap_center_angle));
+        
+        if (score > furthest_range) // Reusing furthest_range variable as best_score
         {
-            if (ranges[j] > furthest_range)
-            {
-                furthest_range = ranges[j];
-                best_start = static_cast<int>(gap_start);
-                best_end = static_cast<int>(gap_end);
-            }
+            furthest_range = score; 
+            best_start = static_cast<int>(gap_start);
+            best_end = static_cast<int>(gap_end);
         }
     }
 
@@ -303,7 +333,11 @@ int GapFinderNode::find_furthest_point(vector<float> &ranges, const std::pair<in
         }
     }
 
-    return best_mid;
+   // Blend the furthest point with the geometric center of the gap
+    int gap_center = gap.first + (gap.second - gap.first) / 2;
+    double alpha = 0.6; // 60% furthest point, 40% gap center (tune as needed)
+    
+    return static_cast<int>(alpha * best_mid + (1.0 - alpha) * gap_center);
 }
 
 int main(int argc, char **argv)
