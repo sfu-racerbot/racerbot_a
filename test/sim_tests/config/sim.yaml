@@ -116,6 +116,7 @@ bridge:
     # If true, the simulation will step using a timer callback.
     async_mode: True
 
+
 foxglove:
   ros__parameters:
     # Automatically open Foxglove when the launch file starts.

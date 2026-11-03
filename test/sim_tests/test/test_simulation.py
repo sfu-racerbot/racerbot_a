@@ -261,6 +261,20 @@ def simulation():
         parameters=[params],
         output="screen",
     )
+    if(algorithm_name == "least_squares"):
+        selected_algo2 = algorithms["furthest_point_fallback"]
+        algorithm2 = launch_ros.actions.Node(
+                package=selected_algo2["package"],
+                executable=selected_algo2["executable"],
+                parameters=[params],
+                output="screen",
+        )
+        return launch.LaunchDescription([
+                simulator,
+                algorithm,
+                algorithm2,
+                ReadyToTest(),
+            ])
 
     return launch.LaunchDescription([
         simulator,
@@ -269,39 +283,40 @@ def simulation():
     ])
 
 
+# Original testing algorithm to test if the sim is launching correctly. Left commented here incase the person running the simulaor needs
+# a quick debug tool due to local issues during tests
+# @pytest.mark.launch(fixture=simulation)
+# def test_odometry_received(sim_logger):
+#     sim_logger.log_test_description("Basic odometry test")
 
-@pytest.mark.launch(fixture=simulation)
-def test_odometry_received(sim_logger):
-    sim_logger.log_test_description("Basic odometry test")
+#     rclpy.init()
 
-    rclpy.init()
+#     node = rclpy.create_node("simulation_test_monitor")
+#     received_messages = []
 
-    node = rclpy.create_node("simulation_test_monitor")
-    received_messages = []
+#     subscription = node.create_subscription(
+#         Odometry,
+#         "/ego_racecar/odom",
+#         lambda msg: received_messages.append(msg),
+#         10,
+#     )
 
-    subscription = node.create_subscription(
-        Odometry,
-        "/ego_racecar/odom",
-        lambda msg: received_messages.append(msg),
-        10,
-    )
+#     try:
+#         deadline = time.monotonic() + 7.5
 
-    try:
-        deadline = time.monotonic() + 7.5
+#         while time.monotonic() < deadline:
+#             rclpy.spin_once(node, timeout_sec=0.1)
 
-        while time.monotonic() < deadline:
-            rclpy.spin_once(node, timeout_sec=0.1)
+#         assert received_messages, ( "Simulator did not publish odometry within 15 seconds" )
+#     except Exception:
+#         sim_logger.log_result(False)
+#         raise
+#     else:
+#         sim_logger.log_result(True)
 
-        assert received_messages, ( "Simulator did not publish odometry within 15 seconds" )
-    except Exception:
-        sim_logger.log_result(False)
-        raise
-    else:
-        sim_logger.log_result(True)
-
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+#     finally:
+#         node.destroy_node()
+#         rclpy.shutdown()
 
 
 ##--- watches car's odometry, passes if loop is detected
