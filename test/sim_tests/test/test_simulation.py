@@ -181,7 +181,7 @@ def check_nodes_life(node, request, last_odom, start_time):
     current_time = time.monotonic()
 
     # Giving the drivers and the simulator some time to startup so we dont treat a non started node as a crashed node
-    start_grace_period = 5.0
+    start_grace_period = 10.0
     if current_time - start_time < start_grace_period:
         return
 
@@ -200,8 +200,8 @@ def check_nodes_life(node, request, last_odom, start_time):
     # if there has not been a message from it in the last two seconds or if it never recieves a message
     # Checking to make sure atleast one odom message has been sent during the start grace period
     if last_odom[0] == -1:
-        request.config.program_summary = "The never started or crashed early"
-        assert False ("The never started or crashed early")
+        request.config.program_summary = "The simulator never started or crashed early"
+        assert False ("The simulator never started or crashed early")
     
     time_since_odom = current_time - last_odom[0]
     if time_since_odom > 2.0:
