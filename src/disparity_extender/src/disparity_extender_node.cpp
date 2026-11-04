@@ -6,6 +6,7 @@ DisparityExtenderNode::DisparityExtenderNode() : Node("disparity_extender_node")
     RCLCPP_INFO(this->get_logger(), "Disparity Extender node started");
 
     // Declare with a default value
+    this->declare_parameter("enable_stop", true);
     this->declare_parameter("max_steering_angle", 0.349);
     this->declare_parameter("max_lidar_range", 10.0);
     this->declare_parameter("car_width", 0.4);
@@ -19,8 +20,10 @@ DisparityExtenderNode::DisparityExtenderNode() : Node("disparity_extender_node")
     this->declare_parameter("wheelbase", 0.33);
     this->declare_parameter("max_lateral_acc", 3.5);
     this->declare_parameter("enable_safety", true);
+    // Add enable_stop param that stops the car if no valid gap found
 
     // Read into member variables
+    enable_stop_ = this->get_parameter("enable_stop").as_bool();
     max_steering_angle_ = this->get_parameter("max_steering_angle").as_double();
     max_lidar_range_ = this->get_parameter("max_lidar_range").as_double();
     car_width_ = this->get_parameter("car_width").as_double();
@@ -65,6 +68,15 @@ void DisparityExtenderNode::lidar_callback(const sensor_msgs::msg::LaserScan::Co
 
     if (gap.first == -1)
     {
+        if (enable_stop_)
+        {
+            ackermann_msgs::msg::AckermannDriveStamped drive_msg;
+            drive_msg.header.stamp = this->now();
+            drive_msg.drive.steering_angle = 0.0;
+            drive_msg.drive.speed = 0.0;
+            drive_pub_->publish(drive_msg);
+        }
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "No valid gap found");
         return;
     }
 

@@ -17,6 +17,8 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laser_scan_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr safety_brake_sub_;
     
+    bool enable_safety_;
+    bool enable_stop_;
     float prev_steer_ = 0.0f;
     double max_steering_angle_; // max angle that the car can steer (rad)
     double max_lidar_range_;
