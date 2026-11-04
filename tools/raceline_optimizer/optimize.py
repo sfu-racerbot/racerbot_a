@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import warnings
 
 ROOT = Path(__file__).resolve().parents[2]
 WAYPOINTS = ROOT / "src/pure_pursuit_a/waypoints"
@@ -17,8 +18,11 @@ sys.path.insert(0, str(ROOT / "src/waypoint_generator"))
 
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.transforms import Affine2D
 import numpy as np
 import trajectory_planning_helpers as tph
+from helper_funcs_glob.src.result_plots import result_plots
 from waypoint_generator.generator import (
     VehicleGeometry, WaypointPath, estimate_widths, extract_track, load_map, planning_mask,
     signed_area, validate_waypoints,
@@ -169,6 +173,80 @@ def validate_geometry(geometry, grid, mask, direction, vehicle):
             "dense_validation_points": len(dense)}
 
 
+def save_waterloo_plots(directory, track, geometry, vehicle, grid):
+    """Save upstream's raceline and curvature figures without a speed stage."""
+    reference = geometry["reference"]
+    _, _, _, normals = tph.calc_splines.calc_splines(
+        path=np.vstack((reference[:, :2], reference[0, :2])))
+    _, _, _, imported_normals = tph.calc_splines.calc_splines(
+        path=np.vstack((track[:, :2], track[0, :2])))
+    # Upstream accepts seven trajectory columns. The two unused speed columns
+    # are placeholders; both velocity plotting branches remain disabled.
+    trajectory = np.column_stack((geometry["s"], geometry["points"],
+                                  geometry["heading"], geometry["curvature"],
+                                  np.zeros((len(geometry["points"]), 2))))
+    existing_figures = set(plt.get_fignums())
+    try:
+        with warnings.catch_warnings():
+            # Upstream calls show(); the Agg backend saves figures instead.
+            warnings.filterwarnings("ignore", message="FigureCanvasAgg is non-interactive.*",
+                                    category=UserWarning)
+            result_plots(
+                plot_opts=dict(raceline=True, raceline_curv=True, imported_bounds=False,
+                               racetraj_vel_3d=False, spline_normals=False),
+                width_veh_opt=float(geometry["optimization_width"]), width_veh_real=vehicle.width,
+                refline=reference[:, :2],
+                bound1_imp=track[:, :2] + imported_normals * track[:, 2, None],
+                bound2_imp=track[:, :2] - imported_normals * track[:, 3, None],
+                bound1_interp=reference[:, :2] + normals * reference[:, 2, None],
+                bound2_interp=reference[:, :2] - normals * reference[:, 3, None],
+                trajectory=trajectory)
+        figures = sorted(set(plt.get_fignums()) - existing_figures)
+        if len(figures) != 2:
+            raise RuntimeError("Expected Waterloo raceline and curvature figures")
+        # Keep upstream's plotting function, then present its two path lines on
+        # the real occupancy map instead of its vehicle/boundary debug layers.
+        overlay = plt.figure(figures[0])
+        ax = overlay.axes[0]
+        centerline, raceline = ax.lines[0], ax.lines[-1]
+        for line in ax.lines:
+            line.set_visible(line in (centerline, raceline))
+        centerline.set_data(*np.vstack((track[:, :2], track[0, :2])).T)
+        centerline.set(color="#2563eb", linestyle="--", linewidth=1.3,
+                       label="Generated centerline", zorder=3)
+        raceline.set_data(*np.vstack((geometry["points"], geometry["points"][0])).T)
+        raceline.set(color="#dc2626", linewidth=1.7, label="Optimized raceline", zorder=4)
+        for patch in tuple(ax.patches):
+            patch.remove()  # Upstream's fixed two-metre arrow dominates small tracks.
+        transform = (Affine2D().rotate(grid.origin[2]).translate(*grid.origin[:2])
+                     + ax.transData)
+        ax.imshow(np.where(grid.cells < 0, 50, grid.cells), cmap="gray_r", vmin=0, vmax=100,
+                  origin="upper", extent=(0, grid.width * grid.resolution,
+                                          0, grid.height * grid.resolution),
+                  transform=transform, zorder=0, interpolation="nearest")
+        bounds = np.vstack((track[:, :2] + imported_normals * track[:, 2, None],
+                            track[:, :2] - imported_normals * track[:, 3, None],
+                            geometry["points"]))
+        ax.set_xlim(bounds[:, 0].min() - .5, bounds[:, 0].max() + .5)
+        ax.set_ylim(bounds[:, 1].min() - .5, bounds[:, 1].max() + .5)
+        start = geometry["points"][0]
+        ax.plot(*start, "o", color="#111827", markersize=4, zorder=5)
+        ax.annotate("Start", start, xytext=(6, 6), textcoords="offset points", fontsize=8)
+        ax.set(title="Centerline and optimized raceline", xlabel="x [m]", ylabel="y [m]")
+        ax.set_aspect("equal", adjustable="box")
+        ax.grid(False)
+        ax.legend(loc="best")
+        overlay.set_size_inches(10, 6)
+        curvature_ax = plt.figure(figures[1]).axes[0]
+        curvature_ax.lines[0].set_color("#dc2626")
+        curvature_ax.set_title("Optimized raceline curvature")
+        for number, name in zip(figures, ("overlay.png", "curvature.png")):
+            plt.figure(number).savefig(directory / name, dpi=160, bbox_inches="tight")
+    finally:
+        for number in set(plt.get_fignums()) - existing_figures:
+            plt.close(number)
+
+
 def output_locations(args):
     name = Path(args.map).stem + "_optimized"
     details = WAYPOINTS / (Path(args.map).stem + "_Optimized")
@@ -241,8 +319,10 @@ def run(args):
         staged.mkdir()
         np.savetxt(staged / csv_name, geometry["points"], delimiter=",", fmt="%.9f",
                    header="x_m,y_m\nclosure=implicit; driving_verified=false")
+        save_waterloo_plots(staged, track, geometry, vehicle, grid)
         publish_results(staged, details)
     print(f"Validated waypoints written to {controller_csv}; driving unverified")
+    print(f"Waterloo raceline and curvature plots: {details}")
     print(f"Rebuild pure_pursuit_a and select track:={report['controller_track']}")
     return report
 

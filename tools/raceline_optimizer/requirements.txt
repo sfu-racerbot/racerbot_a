@@ -7,4 +7,3 @@ scikit-image==0.24.0
 Pillow==11.1.0
 PyYAML==6.0.2
 shapely==2.0.7
-pytest==8.3.5

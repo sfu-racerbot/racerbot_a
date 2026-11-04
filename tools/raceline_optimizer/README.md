@@ -62,15 +62,14 @@ smoothing can cut across walls. Add `--overwrite` when replacing existing output
 
 ## Parameters you may change
 
-| Option | Purpose |
-| --- | --- |
-| `--map PATH` | Saved map YAML; required in both commands. |
-| `--centerline PATH` | Generated four-column centerline CSV; optimizer only. |
-| `--config PATH` | Optimizer preset; defaults to `config.ini` when omitted. |
-| `--overwrite` | Replace existing outputs after successful validation. |
-| `--spacing METRES` | Centerline spacing; default `0.15`. |
-| `--direction ccw\|cw` | Centerline travel direction; default `ccw`. |
-| `--corridor-map PATH` | Optional aligned map restricting planning to a closed corridor; pass to both commands. |
+| Option                | Purpose                                                  |
+| --------------------- | -------------------------------------------------------- |
+| `--map PATH`          | Saved map YAML, required in both commands.               |
+| `--centerline PATH`   | Generated four-column centerline CSV. (optimizer only).  |
+| `--config PATH`       | Optimizer preset. Defaults to `config.ini` when omitted. |
+| `--overwrite`         | Replace existing outputs after successful validation.    |
+| `--spacing METRES`    | Centerline spacing. Default = `0.15`.                    |
+| `--direction ccw\|cw` | Centerline travel direction. Default is`ccw`.            |
 
 For the original `levine.yaml`, add `--corridor-map maps/levine_blocked.yaml`
 to both commands. Corridor maps must match the input's image size, resolution
@@ -78,11 +77,20 @@ and origin. Use `--help` for all options.
 
 ## 4. Use the output
 
-Only the optimized CSV is saved:
+Each optimized folder contains the controller CSV and two plots from Waterloo's
+`result_plots.py`, saved as PNGs rather than displayed interactively:
 
 ```text
-src/pure_pursuit_a/waypoints/<MAP>_Optimized/<MAP>_optimized.csv
+src/pure_pursuit_a/waypoints/<MAP>_Optimized/
+  <MAP>_optimized.csv
+  overlay.png          # map, blue dashed centerline, red raceline and start marker
+  curvature.png        # optimized curvature versus distance
 ```
+
+Speed plots are deferred with speed profiling. Simulator diagnostics, logs and
+geometry archives are not written into these folders.
+The adapter styles Waterloo's figures with a map background and legend, hiding
+vehicle-width debug lines and replacing its oversized direction arrow.
 
 Rebuild Pure Pursuit and select `track:=<MAP>_Optimized/<MAP>_optimized`
 without `.csv`. For example: `track:=levine_blocked_Optimized/levine_blocked_optimized`.
