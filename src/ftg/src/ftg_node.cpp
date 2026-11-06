@@ -271,6 +271,11 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
     }
 
     float abs_angle = std::abs(target_angle); // Based on target_angle to avoid smoothing delay
+    //Add a new deadzone for speed, so small turning doesn't slow us down in straights
+    if (abs_angle < 2 * steering_deadzone_) {
+      double n = (std::max(abs_angle - steering_deadzone_, 0.0) / steering_deadzone_);
+      abs_angle *= n * n;
+    }
 
     // Limit 1: slow down for sharp turns (v = sqrt(a * R), R = wheelbase / tan(steer))
     float abs_tan = std::tan(abs_angle);
