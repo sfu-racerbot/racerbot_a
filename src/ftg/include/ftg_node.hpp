@@ -39,6 +39,7 @@ private:
     double slow_range_;           // Target range distance to hit min speed 
     double fast_range_;           // Target range distance to hit max speed 
     double slow_speed_;           // Min speed for speed distance determination, NOT minimum overall speed
+    double low_angle_tolerance_;   // Multiple of degrees from the steering deadzone to maintian higher speeds
 
     /// @brief clean lidar scan
     /// @param scan_msg The scan data from the lidar

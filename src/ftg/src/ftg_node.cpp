@@ -28,6 +28,7 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     this->declare_parameter("slow_range", 0.5);
     this->declare_parameter("fast_range", 2.0);
     this->declare_parameter("slow_speed", 3.0);
+    this->declare_parameter("low_angle_tolerance", 2.5);
 
     max_speed_ = this->get_parameter("max_speed").as_double();
     min_speed_ = this->get_parameter("min_speed").as_double();
@@ -48,6 +49,7 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     slow_range_ = this->get_parameter("slow_range").as_double();
     fast_range_ = this->get_parameter("fast_range").as_double();
     slow_speed_ = this->get_parameter("slow_speed").as_double();
+    low_angle_tolerance_ = this->get_parameter("low_angle_tolerance").as_double();
     prev_angle_ = 0;
 
     this->drive_msg_publisher = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
@@ -121,6 +123,11 @@ void FollowTheGapNode::draw_safety_bubble(const sensor_msgs::msg::LaserScan::Con
     if (!found_closest)
     return;
 
+    //Figure out how deep into the bubble box the closest point is 
+    float d_angle = scan_msg->angle_min + scan_msg->angle_increment * closest_index;
+    double d_beside = ranges[closest_index] * std::sin(d_angle);
+    double depth = std::clamp((bubble_half_width_ - std::abs(d_beside)) / 0.25, 0.0, 1.0);
+  
     // Draw safety bubble by calculating theta for the arc made by r = closest
     // point with s = car width
 
@@ -142,9 +149,10 @@ void FollowTheGapNode::draw_safety_bubble(const sensor_msgs::msg::LaserScan::Con
     size_t start = (closest_index > index_increment) ? closest_index - index_increment : 0;
 
     size_t end = std::min(closest_index + index_increment, ranges.size());
-
+    
+    double depth_smothed = std::clamp((depth - 0.2) / 0.8, 0.0, 1.0);
     for (size_t i = start; i < end; ++i) {
-        ranges[i] = 0;
+      ranges[i] *= (1 - depth_smothed);
     }
 }
 
@@ -272,8 +280,8 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
 
     float abs_angle = std::abs(target_angle); // Based on target_angle to avoid smoothing delay
     //Add a new deadzone for speed, so small turning doesn't slow us down in straights
-    if (abs_angle < 2 * steering_deadzone_) {
-      double n = (std::max(abs_angle - steering_deadzone_, 0.0) / steering_deadzone_);
+    if (abs_angle < low_angle_tolerance_ * steering_deadzone_) {
+      double n = (std::max(abs_angle - steering_deadzone_, 0.0) / ((low_angle_tolerance_ - 1) * steering_deadzone_));
       abs_angle *= n * n;
     }
 
