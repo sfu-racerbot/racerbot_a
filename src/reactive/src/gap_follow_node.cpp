@@ -100,22 +100,22 @@ void GapFollowNode::least_squares_pathfinding(const reactive::msg::Gap::ConstSha
     }
 
     // Create coordinate vectors for least squares to use
-    Eigen::VectorXd theta(gap_msg->ranges.size());
-    Eigen::VectorXd r(gap_msg->ranges.size());
+    Eigen::VectorXd x(gap_msg->ranges.size());
+    Eigen::VectorXd y(gap_msg->ranges.size());
 
     for (size_t i = 0; i < gap_msg->ranges.size(); i++)
     {
-        theta(i) = gap_msg->angles[i];
-        r(i) = gap_msg->ranges[i];
+        x(i) = gap_msg->ranges[i] * std::cos(gap_msg->angles[i]);
+        y(i) = gap_msg->ranges[i] * std::sin(gap_msg->angles[i]);
     }
 
     // make sure we get the furthest point in the LiDAR gap to clamp our lookahead value to
-    double max_lookahead = std::max(r.maxCoeff(), 0.1);
+    double max_lookahead = std::max(x.maxCoeff(), 0.1);
 
     // Determine polynomial coefficients
-    Eigen::VectorXd coefficients = fit_polynomial(theta, r);
+    Eigen::VectorXd coefficients = fit_polynomial(x, y);
 
-    double steering_angle = compute_steering_angle(coefficients, theta, max_lookahead);
+    double steering_angle = compute_steering_angle(coefficients, x, max_lookahead);
 
     double now_sec = this->now().seconds();
     double dt = (last_callback_time_ > 0.0) ? (now_sec - last_callback_time_) : 0.02;
@@ -173,31 +173,31 @@ double GapFollowNode::get_curve_output(double x, Eigen::VectorXd coefficients)
     return y;
 }
 
-double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, Eigen::VectorXd theta, double max_lookahead)
+double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, Eigen::VectorXd x_coords, double max_lookahead)
 {
-    double theta_min = theta.minCoeff();
-    double theta_max = theta.maxCoeff();
+    double x_min = x_coords.minCoeff();
+    double x_max = x_coords.maxCoeff();
 
-    double best_theta = theta_min;
-    double best_range = -std::numeric_limits<double>::max();
+    double best_x = x_min;
+    double best_y = 0.0;
 
     for (int i = 0; i <= k_samples_; i++)
     {
-        double t = theta_min + (theta_max - theta_min) * i / k_samples_;
-        double predicted_r = get_curve_output(t, coefficients);
-
-        if (predicted_r > max_lookahead)
+        double x = x_min + (x_max - x_min) * i / k_samples_;
+        if (x > max_lookahead)
         {
             continue;
         }
 
-        if (predicted_r > best_range)
+        double y = get_curve_output(x, coefficients);
+
+        if (x > best_x)
         {
-            best_range = predicted_r;
-            best_theta = t;
+            best_x = x;
+            best_y = y;
         }
     }
-    return best_theta;
+    return std::atan2(best_y, best_x);
 }
 
 double GapFollowNode::angle_to_speed_function(double angle)
@@ -231,16 +231,16 @@ double GapFollowNode::get_combined_speed(double angle, double range)
     static double last_speed = 0.0; // Proxy for current vehicle velocity
 
     double angle_speed = angle_to_speed_function(angle);
-    
+
     // Braking penalty: Shrink the perceived safe range if moving quickly
-    double lookahead_penalty = 0.6 * last_speed; 
+    double lookahead_penalty = 0.6 * last_speed;
     double effective_range = std::max(0.0, range - lookahead_penalty);
-    
+
     double range_speed = range_to_speed_function(effective_range);
 
     double final_speed = std::min(angle_speed, range_speed);
     last_speed = final_speed; // Store for the next iteration
-    
+
     return final_speed;
 }
 
