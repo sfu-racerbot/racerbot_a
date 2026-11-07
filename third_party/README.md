@@ -1,14 +1,21 @@
-# Waterloo source snapshots
+# Third-party sources
 
-These two directories are complete source snapshots of the repositories and
-commits recorded in UPSTREAM.json, fetched through GitHub's archive API.
-The helper has one documented SciPy shape-compatibility patch (see patches/).
-No numerical algorithm has been changed. Their original LGPL licenses and
-attribution remain in each directory. Racerbot's MIT license does not relicense
-these sources. COLCON_IGNORE excludes this directory from ROS package discovery.
+The raceline optimizer uses two Waterloo repositories. (not
+committed here). Clone them into this directory
+(they are gitignored) with the ommand below.
 
 - raceline_optimization: orchestration, track preparation and future trajectory stages.
 - trajectory_planning_helpers: the spline, quadratic-program and resampling implementation.
 
-Install the helper snapshot with the commands in ../tools/raceline_optimizer/README.md.
-Do not install the historical raceline_optimization/requirements.txt into ROS.
+## Setup (first time only)
+
+Run from the `racerbot_a` repository root:
+
+```bash
+git clone https://github.com/CL2-UWaterloo/Raceline-Optimization third_party/raceline_optimization
+git -C third_party/raceline_optimization checkout 9290c5d503462e46f7e3e9033002e7ddf165ba7b
+
+git clone https://github.com/CL2-UWaterloo/trajectory_planning_helpers third_party/trajectory_planning_helpers
+git -C third_party/trajectory_planning_helpers checkout fde6cee2b7bf6dd7d0f8f3d32f6a1be3cfe35b56
+git -C third_party/trajectory_planning_helpers apply ../patches/scipy-flat-vector.patch
+```

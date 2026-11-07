@@ -2,9 +2,22 @@
 
 Uses Waterloo's minimum-curvature optimizer to turn a saved SLAM map and
 centerline into an optimized raceline CSV for Pure Pursuit. Waterloo's code is
-already included; no cloning is needed. Run commands from **`racerbot_a`**.
+not committed here; clone it in Step 1. Run commands from **`racerbot_a`**.
 
 ## 1. Setup (first time only)
+
+Clone Waterloo's two repositories into `third_party/` (they are gitignored) at
+the commits pinned in `third_party/UPSTREAM.json`, and apply the one-line SciPy
+patch to the helper:
+
+```bash
+git clone https://github.com/CL2-UWaterloo/Raceline-Optimization third_party/raceline_optimization
+git -C third_party/raceline_optimization checkout 9290c5d503462e46f7e3e9033002e7ddf165ba7b
+
+git clone https://github.com/CL2-UWaterloo/trajectory_planning_helpers third_party/trajectory_planning_helpers
+git -C third_party/trajectory_planning_helpers checkout fde6cee2b7bf6dd7d0f8f3d32f6a1be3cfe35b56
+git -C third_party/trajectory_planning_helpers apply ../patches/scipy-flat-vector.patch
+```
 
 Use Python 3.10. On Ubuntu, install prerequisites if missing:
 
