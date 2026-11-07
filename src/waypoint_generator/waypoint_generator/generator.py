@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 import math
 import warnings
@@ -171,6 +171,24 @@ def extract_track(grid, seed_world=None):
         raise ValueError(f"Found {len(candidates)} candidate corridors; use --seed for ambiguity, "
                          "or check for incomplete boundaries, obstacles and multiple routes")
     return candidates[0]
+
+
+def planning_mask(grid, seed=None, corridor_map=None):
+    """Optionally restrict free space with an aligned, closed planning corridor.
+
+    The original map remains authoritative: a planning mask cannot remove walls
+    or unknown cells. This permits a bounded route on maps open to the exterior.
+    """
+    if corridor_map is None:
+        return extract_track(grid, seed)
+    corridor = load_map(corridor_map)
+    if (corridor.cells.shape != grid.cells.shape
+            or not math.isclose(corridor.resolution, grid.resolution, rel_tol=0, abs_tol=1e-10)
+            or not np.allclose(corridor.origin, grid.origin, rtol=0, atol=1e-10)):
+        raise ValueError("Corridor map must match the input map's image size, resolution and origin")
+    allowed = extract_track(corridor, seed) & grid.free
+    restricted = replace(grid, cells=np.where(allowed, 0, 100).astype(np.int8))
+    return extract_track(restricted, seed)
 
 
 def skeleton_loop(skeleton):
@@ -388,14 +406,15 @@ def validate_waypoints(path, grid, mask, vehicle=None):
         warnings.warn("Curvature exceeds the configured steering limit; driving is unverified", stacklevel=2)
 
 
-def generate_waypoints(map_path, spacing=0.15, seed=None, direction="ccw", vehicle=None):
+def generate_waypoints(map_path, spacing=0.15, seed=None, direction="ccw", vehicle=None,
+                       corridor_map=None):
     """Return validated N×4 x,y,right-width,left-width rows in world metres."""
     if not np.isfinite(spacing) or spacing <= 0:
         raise ValueError("Spacing must be finite and positive")
 
     # same pipeline for preloaded maps and maps saved after SLAM
     grid = load_map(map_path)
-    mask = extract_track(grid, seed)
+    mask = planning_mask(grid, seed, corridor_map)
     path = process_waypoints(generate_centerline(mask), grid, mask, spacing, direction)
 
     # only return rows once the geometry checks pass

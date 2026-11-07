@@ -59,6 +59,11 @@ The controller's driving logic remains unfinished; loading a CSV does not verify
 
 - `--map`: input the corresponding path to saved map's YAML file.
 
+- `--corridor-map`: optional aligned map defining a closed planning corridor
+  when the input map is open to the exterior. Size, resolution and origin must
+  match. Original occupied/unknown cells remain excluded. For `maps/levine.yaml`,
+  use `--corridor-map maps/levine_blocked.yaml` here and in the raceline optimizer.
+
 - `--spacing`: interval in metres between each waypoint, default is `0.15`.
 
 - `--length`, `--width`, `--reference-offset-x`, `--safety-margin`: vehicle geometry
