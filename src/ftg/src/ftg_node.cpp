@@ -29,6 +29,7 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     this->declare_parameter("fast_range", 2.0);
     this->declare_parameter("slow_speed", 3.0);
     this->declare_parameter("low_angle_tolerance", 2.5);
+    this->declare_parameter("full_bubble_threshold", 0.25);
 
     max_speed_ = this->get_parameter("max_speed").as_double();
     min_speed_ = this->get_parameter("min_speed").as_double();
@@ -50,6 +51,7 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     fast_range_ = this->get_parameter("fast_range").as_double();
     slow_speed_ = this->get_parameter("slow_speed").as_double();
     low_angle_tolerance_ = this->get_parameter("low_angle_tolerance").as_double();
+    full_bubble_threshold_ = this->get_parameter("full_bubble_threshold").as_double();
     prev_angle_ = 0;
 
     this->drive_msg_publisher = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
@@ -126,7 +128,7 @@ void FollowTheGapNode::draw_safety_bubble(const sensor_msgs::msg::LaserScan::Con
     //Figure out how deep into the bubble box the closest point is 
     float d_angle = scan_msg->angle_min + scan_msg->angle_increment * closest_index;
     double d_beside = ranges[closest_index] * std::sin(d_angle);
-    double depth = std::clamp((bubble_half_width_ - std::abs(d_beside)) / 0.25, 0.0, 1.0);
+    double depth = std::clamp((bubble_half_width_ - std::abs(d_beside)) / full_bubble_threshold_, 0.0, 1.0);
   
     // Draw safety bubble by calculating theta for the arc made by r = closest
     // point with s = car width

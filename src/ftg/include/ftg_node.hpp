@@ -40,6 +40,7 @@ private:
     double fast_range_;           // Target range distance to hit max speed 
     double slow_speed_;           // Min speed for speed distance determination, NOT minimum overall speed
     double low_angle_tolerance_;   // Multiple of degrees from the steering deadzone to maintian higher speeds
+    double full_bubble_threshold_; // Dist into bubble box needed for full bubbling.
 
     /// @brief clean lidar scan
     /// @param scan_msg The scan data from the lidar

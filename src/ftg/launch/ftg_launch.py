@@ -126,6 +126,12 @@ def generate_launch_description():
         description="Multilpe of degrees from the deadzone within which to maintain higher speeds"
     )
 
+    full_bubble_threshold_arg = DeclareLaunchArgument(
+        "full_bubble_threshold",
+        default_value="0.25",
+        description="Distance into bubble box needed for full bubble aplication."
+    )
+
     opponent_car = LaunchConfiguration("opponent_car")
 
     opponent_car_arg = DeclareLaunchArgument(
@@ -161,6 +167,7 @@ def generate_launch_description():
             fast_range_arg,
             slow_speed_arg,
             low_angle_tolerance_arg,
+            full_bubble_threshold_arg,
             # Launch follow the gap
             Node(
                 package="ftg",
@@ -188,6 +195,7 @@ def generate_launch_description():
                     {"fast_range": LaunchConfiguration("fast_range")},
                     {"slow_speed": LaunchConfiguration("slow_speed")},
                     {"low_angle_tolerance": LaunchConfiguration("low_angle_tolerance")},
+                    {"full_bubble_threshold": LaunchConfiguration("full_bubble_threshold")},
                 ],
                 remappings=[("/drive", drive_topic), ("/scan", scan_topic)],
             ),
