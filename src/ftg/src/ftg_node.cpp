@@ -7,7 +7,6 @@ using std::vector;
 
 FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     RCLCPP_INFO(this->get_logger(), "Follow the gap node started");
-
     // ROS2 parameters
     this->declare_parameter("max_speed", 4.5);
     this->declare_parameter("min_speed", 0.7);
@@ -25,6 +24,9 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     this->declare_parameter("steering_deadzone",2.0);
     this->declare_parameter("steering_angle_max", 0.349);
     this->declare_parameter("max_lateral_acc",3.5);
+    this->declare_parameter("enable_launch", false);
+    this->declare_parameter("launch_duration", 2.5); 
+    this->declare_parameter("launch_speed", 7.0);
     this->declare_parameter("slow_range", 0.5);
     this->declare_parameter("fast_range", 2.0);
     this->declare_parameter("slow_speed", 3.0);
@@ -47,12 +49,17 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     steering_deadzone_ = this->get_parameter("steering_deadzone").as_double() * M_PI / 180.0;
     steering_angle_max_ = this->get_parameter("steering_angle_max").as_double();
     max_lateral_acc_ = this->get_parameter("max_lateral_acc").as_double();
+    enable_launch_ = this->get_parameter("enable_launch").as_bool();
+    launch_duration_ = std::chrono::duration<double>(this->get_parameter("launch_duration").as_double());
+    launch_speed_ = this->get_parameter("launch_speed").as_double();
+
     slow_range_ = this->get_parameter("slow_range").as_double();
     fast_range_ = this->get_parameter("fast_range").as_double();
     slow_speed_ = this->get_parameter("slow_speed").as_double();
     low_angle_tolerance_ = this->get_parameter("low_angle_tolerance").as_double();
     full_bubble_threshold_ = this->get_parameter("full_bubble_threshold").as_double();
     prev_angle_ = 0;
+    launch_deadline_.reset();
 
     this->drive_msg_publisher = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
     this->laser_scan_subscriber = this->create_subscription<sensor_msgs::msg::LaserScan>("scan", 10,
@@ -301,6 +308,22 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
 
     float speed = std::min({static_cast<float>(max_speed_), v_turn, v_range});
     speed = std::clamp(speed, static_cast<float>(min_speed_), static_cast<float>(max_speed_));
+
+    // If the car is currently launching and launch boost is enabled then hard set the speed to launch_speed_
+    if(enable_launch_) {
+        auto now = std::chrono::steady_clock::now();
+        // If this is the first lidar scan get the current time and set a launch deadline that is launch duration seconds from now
+        if(!(launch_deadline_.has_value())){
+            launch_deadline_ = now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(launch_duration_);
+        }
+        // Hard set speed equal to the launch_speed_ parameter
+        speed = launch_speed_;
+        // If the launch is over disable this entire block
+        if(now>=*launch_deadline_){
+            RCLCPP_INFO(this->get_logger(), "Launch Completed");
+            enable_launch_ = false;
+        }
+    }
 
     ackermann_msgs::msg::AckermannDriveStamped drive_msg;
     drive_msg.header.stamp = scan_msg->header.stamp;
