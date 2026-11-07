@@ -16,7 +16,7 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr obstacle_pub_;
 
-    // member variables for thresholds // just a placeholder variable block lol
+    // member variables for thresholds 
     double obstacle_distance_;
     double obstacle_edge_jump_;
     double car_width_extended_;

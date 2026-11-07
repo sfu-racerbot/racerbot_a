@@ -4,7 +4,7 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
 {
     RCLCPP_INFO(this->get_logger(), "Obs_detection node started");
 
-    // declare node parameters // placeholder setup stuff
+    // declare node parameters 
     this->declare_parameter("obstacle_distance", 2.0);
     this->declare_parameter("obstacle_edge_jump", 0.5);
     this->declare_parameter("car_width_extended", 0.55);
@@ -23,10 +23,10 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
 void ObsDetectionNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
 {
     // obstacle detection core logic structure
-    bool obstacle_detected = false; // placeholder result for now // just a placeholder
+    bool obstacle_detected = false; // placeholder result for now 
 
     // TODO: implement lane bounding, forward_min proximity, and edge jump checks here
-    // placeholder logic loop // totally unfinished placeholder code here
+    // placeholder logic loop 
 
     std_msgs::msg::Bool msg;
     msg.data = obstacle_detected;
