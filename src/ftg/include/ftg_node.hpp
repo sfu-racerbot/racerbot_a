@@ -36,6 +36,11 @@ private:
     double steering_deadzone_;    // steering angles below this (rad) are zeroed to stop wobble
     double steering_angle_max_;   // Max steering angle in radians
     double max_lateral_acc_;      // Maximum lateral acceleration in m/s^2
+    double slow_range_;           // Target range distance to hit min speed 
+    double fast_range_;           // Target range distance to hit max speed 
+    double slow_speed_;           // Min speed for speed distance determination, NOT minimum overall speed
+    double low_angle_tolerance_;   // Multiple of degrees from the steering deadzone to maintian higher speeds
+    double full_bubble_threshold_; // Dist into bubble box needed for full bubbling.
 
     /// @brief clean lidar scan
     /// @param scan_msg The scan data from the lidar
