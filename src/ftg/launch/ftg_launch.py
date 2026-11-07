@@ -111,6 +111,22 @@ def generate_launch_description():
         description="If true, remap /drive -> /opp_drive and /scan -> /opp_scan",
     )
 
+    enable_launch_arg = DeclareLaunchArgument(
+        "enable_launch",
+        default_value="false",
+        description="Whether the launch boost is active",
+    )
+    launch_duration_arg = DeclareLaunchArgument(
+        "launch_duration",
+        default_value="2.5",
+        description="The number of seconds the launch boost stays active",
+    )
+    launch_speed_arg = DeclareLaunchArgument(
+        "launch_speed",
+        default_value="7.0",
+        description="How fast the car goes when launching with launch boost enabled",
+    )
+
     drive_topic = IfElseSubstitution(opponent_car, "/opp_drive", "/drive")
     scan_topic = IfElseSubstitution(opponent_car, "/opp_scan", "/scan")
 
@@ -133,6 +149,9 @@ def generate_launch_description():
             steering_deadzone_arg,
             steering_max_angle_arg,
             max_lateral_acc_arg,
+            enable_launch_arg,
+            launch_duration_arg,
+            launch_speed_arg,
             # Launch follow the gap
             Node(
                 package="ftg",
@@ -156,6 +175,9 @@ def generate_launch_description():
                     {"steering_deadzone": LaunchConfiguration("steering_deadzone")},
                     {"steering_angle_max": LaunchConfiguration("steering_angle_max")},
                     {"max_lateral_acc": LaunchConfiguration("max_lateral_acc")},
+                    {"enable_launch": LaunchConfiguration("enable_launch")},
+                    {"launch_duration": LaunchConfiguration("launch_duration")},
+                    {"launch_speed": LaunchConfiguration("launch_speed")},
                 ],
                 remappings=[("/drive", drive_topic), ("/scan", scan_topic)],
             ),

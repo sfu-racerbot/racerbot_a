@@ -7,6 +7,8 @@
 #include <cmath>
 #include <algorithm>
 #include <utility>
+#include <chrono>
+#include <optional>
 using std::vector;
 /// @brief The ROS node responsible for controlling the car with Follow The Gap
 class FollowTheGapNode : public rclcpp::Node
@@ -36,6 +38,11 @@ private:
     double steering_deadzone_;    // steering angles below this (rad) are zeroed to stop wobble
     double steering_angle_max_;   // Max steering angle in radians
     double max_lateral_acc_;      // Maximum lateral acceleration in m/s^2
+    bool enable_launch_;          // Whether the launch boost is actually enabled
+    double launch_speed_;         // Speed the car accelerates to during a launch boost
+    std::chrono::duration<double> launch_duration_;      // The length of time the car spends using launch boost.
+    std::optional<std::chrono::steady_clock::time_point> launch_deadline_; // The deadline for the launch boost to end
+    
 
     /// @brief clean lidar scan
     /// @param scan_msg The scan data from the lidar
@@ -78,4 +85,5 @@ private:
 
     /// @brief Runs everytime something is published to the safety brake topic
     void safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPtr safety_brake_msg);
+
 };
