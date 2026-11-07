@@ -65,10 +65,10 @@ private:
 
     /// @brief Determine steering angle based on coefficients that were calculated
     /// @param coefficients Coefficients of the function, ordered from lowest degree to highest degree
-    /// @param theta Vector of angles in the gap
+    /// @param x_coords Vector of forward (X) distances of the gap points
     /// @param max_lookahead The maximum lookahead distance that the value should be clamped too
     /// @returns The angle the car should steer
-    double compute_steering_angle(Eigen::VectorXd coefficients, Eigen::VectorXd theta, double max_lookahead);
+    double compute_steering_angle(Eigen::VectorXd coefficients, Eigen::VectorXd x_coords, double max_lookahead);
 
     /// @brief The mathematical function that determines the car's speed based on the target_angle
     /// @param angle The target angle

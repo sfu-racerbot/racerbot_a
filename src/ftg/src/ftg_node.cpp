@@ -21,12 +21,17 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     this->declare_parameter("bubble_half_width", 0.45);
     this->declare_parameter("wheelbase", 0.33);
     this->declare_parameter("lookahead_max", 1.8);
-    this->declare_parameter("steering_deadzone",0.7);
+    this->declare_parameter("steering_deadzone",2.0);
     this->declare_parameter("steering_angle_max", 0.349);
     this->declare_parameter("max_lateral_acc",3.5);
     this->declare_parameter("enable_launch", false);
     this->declare_parameter("launch_duration", 2.5); 
     this->declare_parameter("launch_speed", 7.0);
+    this->declare_parameter("slow_range", 0.5);
+    this->declare_parameter("fast_range", 2.0);
+    this->declare_parameter("slow_speed", 3.0);
+    this->declare_parameter("low_angle_tolerance", 2.5);
+    this->declare_parameter("full_bubble_threshold", 0.25);
 
     max_speed_ = this->get_parameter("max_speed").as_double();
     min_speed_ = this->get_parameter("min_speed").as_double();
@@ -48,6 +53,11 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     launch_duration_ = std::chrono::duration<double>(this->get_parameter("launch_duration").as_double());
     launch_speed_ = this->get_parameter("launch_speed").as_double();
 
+    slow_range_ = this->get_parameter("slow_range").as_double();
+    fast_range_ = this->get_parameter("fast_range").as_double();
+    slow_speed_ = this->get_parameter("slow_speed").as_double();
+    low_angle_tolerance_ = this->get_parameter("low_angle_tolerance").as_double();
+    full_bubble_threshold_ = this->get_parameter("full_bubble_threshold").as_double();
     prev_angle_ = 0;
     launch_deadline_.reset();
 
@@ -122,6 +132,11 @@ void FollowTheGapNode::draw_safety_bubble(const sensor_msgs::msg::LaserScan::Con
     if (!found_closest)
     return;
 
+    //Figure out how deep into the bubble box the closest point is 
+    float d_angle = scan_msg->angle_min + scan_msg->angle_increment * closest_index;
+    double d_beside = ranges[closest_index] * std::sin(d_angle);
+    double depth = std::clamp((bubble_half_width_ - std::abs(d_beside)) / full_bubble_threshold_, 0.0, 1.0);
+  
     // Draw safety bubble by calculating theta for the arc made by r = closest
     // point with s = car width
 
@@ -143,9 +158,10 @@ void FollowTheGapNode::draw_safety_bubble(const sensor_msgs::msg::LaserScan::Con
     size_t start = (closest_index > index_increment) ? closest_index - index_increment : 0;
 
     size_t end = std::min(closest_index + index_increment, ranges.size());
-
+    
+    double depth_smothed = std::clamp((depth - 0.2) / 0.8, 0.0, 1.0);
     for (size_t i = start; i < end; ++i) {
-        ranges[i] = 0;
+      ranges[i] *= (1 - depth_smothed);
     }
 }
 
@@ -254,11 +270,11 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
     float target_angle = static_cast<float>(std::atan2(2.0 * wheelbase_ * std::sin(current_angle), lookahead));
 
     //If the point we need to steer to is hard to the left or right, steer as hard to it
-    if (abs(current_angle) > 50 * M_PI / 180.0) {
+    if (abs(current_angle) > 45 * M_PI / 180.0) {
       if (current_angle >= 0) {
         target_angle = steering_angle_max_; // Steering max
       } else {
-        target_angle = -1.0f * 0.41f;
+        target_angle = -1.0f * steering_angle_max_;
       }
     }
 
@@ -271,7 +287,12 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
         steering_angle = 0.0f;
     }
 
-    float abs_angle = std::abs(steering_angle);
+    float abs_angle = std::abs(target_angle); // Based on target_angle to avoid smoothing delay
+    //Add a new deadzone for speed, so small turning doesn't slow us down in straights
+    if (abs_angle < low_angle_tolerance_ * steering_deadzone_) {
+      double n = (std::max(abs_angle - steering_deadzone_, 0.0) / ((low_angle_tolerance_ - 1) * steering_deadzone_));
+      abs_angle *= n * n;
+    }
 
     // Limit 1: slow down for sharp turns (v = sqrt(a * R), R = wheelbase / tan(steer))
     float abs_tan = std::tan(abs_angle);
@@ -282,7 +303,8 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
     }
 
     // Limit 2: slow down when little distance is left to turn
-    float v_range = std::sqrt(max_lateral_acc_ * target_range);
+    double t = std::clamp((target_range - slow_range_) / (fast_range_ - slow_range_), 0.0, 1.0);
+    float v_range = slow_speed_ + (max_speed_ - slow_speed_) * t * t;
 
     float speed = std::min({static_cast<float>(max_speed_), v_turn, v_range});
     speed = std::clamp(speed, static_cast<float>(min_speed_), static_cast<float>(max_speed_));

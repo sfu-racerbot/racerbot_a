@@ -20,7 +20,7 @@ def generate_launch_description():
 
     min_speed_arg = DeclareLaunchArgument(
         "min_speed",
-        default_value="0.7",
+        default_value="0.6",
         description="Minimum forward speed allowed in meters per second",
     )
 
@@ -50,7 +50,7 @@ def generate_launch_description():
 
     safety_bubble_scale_arg = DeclareLaunchArgument(
         "safety_bubble_scale",
-        default_value="0.5",
+        default_value="0.65",
         description="Scale factor for the safety bubble size",
     )
 
@@ -68,7 +68,7 @@ def generate_launch_description():
 
     bubble_half_width_arg = DeclareLaunchArgument(
         "bubble_half_width",
-        default_value="0.45",
+        default_value="0.5",
         description="Half width of the obstacle bubble region (meters)",
     )
 
@@ -80,14 +80,14 @@ def generate_launch_description():
 
     lookahead_max_arg = DeclareLaunchArgument(
         "lookahead_max",
-        default_value="1.8",
+        default_value="2.0",
         description="Maximum lookahead distance for target point selection (meters)",
     )
 
     steering_deadzone_arg = DeclareLaunchArgument(
         "steering_deadzone",
-        default_value="0.7",
-        description="Deadzone angle in radians below which steering is zeroed out",
+        default_value="2.0",
+        description="Deadzone angle in degrees below which steering is zeroed out",
     )
 
     steering_max_angle_arg = DeclareLaunchArgument(
@@ -100,6 +100,36 @@ def generate_launch_description():
         "max_lateral_acc",
         default_value="3.5",
         description="Maximum lateral acceleration in m/s^2",
+    )
+
+    slow_range_arg = DeclareLaunchArgument(
+        "slow_range",
+        default_value="1.0",
+        description="Range under which to minimize speed."
+    )
+
+    fast_range_arg = DeclareLaunchArgument(
+        "fast_range",
+        default_value="2.25",
+        description="Range at and above which to try and maximize speed."
+    )
+
+    slow_speed_arg = DeclareLaunchArgument(
+        "slow_speed",
+        default_value="2.0",
+        description="Speed to slow to at and under slow_range. Further minimized by turning, not minimum overall speed."
+    )
+
+    low_angle_tolerance_arg = DeclareLaunchArgument(
+        "low_angle_tolerance",
+        default_value="2.5",
+        description="Multilpe of degrees from the deadzone within which to maintain higher speeds"
+    )
+
+    full_bubble_threshold_arg = DeclareLaunchArgument(
+        "full_bubble_threshold",
+        default_value="0.25",
+        description="Distance into bubble box needed for full bubble aplication."
     )
 
     opponent_car = LaunchConfiguration("opponent_car")
@@ -152,6 +182,11 @@ def generate_launch_description():
             enable_launch_arg,
             launch_duration_arg,
             launch_speed_arg,
+            slow_range_arg,
+            fast_range_arg,
+            slow_speed_arg,
+            low_angle_tolerance_arg,
+            full_bubble_threshold_arg,
             # Launch follow the gap
             Node(
                 package="ftg",
@@ -178,6 +213,11 @@ def generate_launch_description():
                     {"enable_launch": LaunchConfiguration("enable_launch")},
                     {"launch_duration": LaunchConfiguration("launch_duration")},
                     {"launch_speed": LaunchConfiguration("launch_speed")},
+                    {"slow_range": LaunchConfiguration("slow_range")},
+                    {"fast_range": LaunchConfiguration("fast_range")},
+                    {"slow_speed": LaunchConfiguration("slow_speed")},
+                    {"low_angle_tolerance": LaunchConfiguration("low_angle_tolerance")},
+                    {"full_bubble_threshold": LaunchConfiguration("full_bubble_threshold")},
                 ],
                 remappings=[("/drive", drive_topic), ("/scan", scan_topic)],
             ),
