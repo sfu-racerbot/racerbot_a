@@ -5,6 +5,8 @@
 #include "std_msgs/msg/bool.hpp"
 #include <vector>
 #include <cmath>
+#include <chrono>
+#include <optional>
 #include <algorithm>
 
 class DisparityExtenderNode : public rclcpp::Node
@@ -32,9 +34,13 @@ private:
     double alpha_;
     double wheelbase_;
     double max_lateral_acc_;
-    bool enable_safety_;
 
     bool safety_brake_engaged_;
+
+    bool enable_launch_;          // Whether the launch boost is actually enabled
+    double launch_speed_;         // Speed the car accelerates to during a launch boost
+    std::chrono::duration<double> launch_duration_;      // The length of time the car spends using launch boost.
+    std::optional<std::chrono::steady_clock::time_point> launch_deadline_; // The deadline for the launch boost to end
 
     /// @brief Callback invoked each time the lidar completes a new scan.
     /// @param scan_msg Shared pointer to the incoming LaserScan message.
