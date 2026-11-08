@@ -95,6 +95,16 @@ void PurePursuit::speed_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
     current_speed_ = msg->twist.twist.linear.x;
 }
 
+void PurePursuit::stop()
+{
+    ackermann_msgs::msg::AckermannDriveStamped drive;
+    drive.header.stamp = now();
+    drive.header.frame_id = "base_link";
+    drive.drive.steering_angle = 0.0;
+    drive.drive.speed = 0.0;
+    drive_pub_->publish(drive);
+}
+
 void PurePursuit::load_waypoints(const std::string& path)
 {
     std::ifstream file(path);
@@ -166,10 +176,7 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
 
     int safety_publisher_count = this->safety_brake_sub_->get_publisher_count();
     if (enable_safety_ && (safety_brake_engaged_ || safety_publisher_count == 0)) {
-        ackermann_msgs::msg::AckermannDriveStamped drive_msg;
-        drive_msg.header.stamp = this->now();
-        drive_msg.drive.speed = 0.0;
-        drive_pub_->publish(drive_msg);
+        stop();
         return;
     }
 
@@ -231,7 +238,8 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
     }
 
     RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 2000, "No suitable forward waypoint found"); // TODO: Handle failure
+        get_logger(), *get_clock(), 2000, "No suitable forward waypoint found, stopping");
+    stop();
 }
 
 int main(int argc, char **argv)

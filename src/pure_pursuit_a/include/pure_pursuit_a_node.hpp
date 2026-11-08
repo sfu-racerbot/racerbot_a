@@ -70,4 +70,7 @@ private:
     ///        distance in front of the car, and computes the pure pursuit steering.
     /// @param msg Odometry message with the car's pose and velocity.
     void odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg);
+
+    /// @brief Publishes a zero-speed drive command.
+    void stop();
 };
