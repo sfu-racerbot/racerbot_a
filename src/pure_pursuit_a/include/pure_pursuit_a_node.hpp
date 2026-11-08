@@ -30,7 +30,7 @@ private:
     double current_speed_ = 0.0;
     bool enable_safety_;
     bool safety_brake_engaged_;
-    bool obs_fallback_engaged = false;
+    bool obs_fallback_engaged_ = false;
     double safety_bubble_scale_;
     double lookahead_base_;        // base lookahead L0 (m)
     double lookahead_min_;         // lower clamp (m)

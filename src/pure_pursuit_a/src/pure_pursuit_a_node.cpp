@@ -80,14 +80,14 @@ void PurePursuit::safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPt
 
 void PurePursuit::obs_fallback_callback(const std_msgs::msg::Bool::ConstSharedPtr obs_fallback_msg) {
     bool fallback = obs_fallback_msg->data;
-    if (fallback != obs_fallback_engaged) {
+    if (fallback != obs_fallback_engaged_) {
         if (fallback) {
             RCLCPP_INFO(get_logger(), "obstacle fallback engaged");
         } else {
             RCLCPP_INFO(get_logger(), "obstacle fallback disengaged");
         }
     }
-    obs_fallback_engaged = fallback;
+    obs_fallback_engaged_ = fallback;
 }
 
 void PurePursuit::speed_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
@@ -174,7 +174,7 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
     }
 
     int obs_fallback_publisher_count = this->obs_fallback_sub_->get_publisher_count();
-    if (obs_fallback_publisher_count > 0 && obs_fallback_engaged) {
+    if (obs_fallback_publisher_count > 0 && obs_fallback_engaged_) {
         return;
     }
 
