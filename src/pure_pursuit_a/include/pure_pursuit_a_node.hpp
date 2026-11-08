@@ -20,6 +20,7 @@ public:
 
 private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr safety_brake_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr obs_fallback_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr speed_sub_;
@@ -29,6 +30,7 @@ private:
     double current_speed_ = 0.0;
     bool enable_safety_;
     bool safety_brake_engaged_;
+    bool obs_fallback_engaged_ = false;
     double safety_bubble_scale_;
     double lookahead_base_;        // base lookahead L0 (m)
     double lookahead_min_;         // lower clamp (m)
@@ -45,6 +47,9 @@ private:
 
     /// @brief Runs everytime something is published to the safety brake topic
     void safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPtr safety_brake_msg);
+
+     /// @brief Runs everytime something is published to the obstacle fallback topic.
+    void obs_fallback_callback(const std_msgs::msg::Bool::ConstSharedPtr obs_fallback_msg);
 
     /// @brief Loads the waypoint path from a file into waypoints_.
     /// @param path Path to the waypoint file (e.g. a CSV with x, y per row).
