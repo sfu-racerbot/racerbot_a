@@ -6,9 +6,6 @@
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 #include "reactive/msg/gap.hpp"
 #include <vector>
-#include <cmath>
-#include <algorithm>
-#include <limits>
 
 class GapFinderNode : public rclcpp::Node
 {
@@ -22,7 +19,10 @@ private:
     double fov_half_angle_;
     double car_width_;
     double minimum_gap_threshold_;
+    double safety_bubble_scale_;
+    double bubble_lookahead_;
     double bubble_half_width_;
+    double full_bubble_threshold_;
     double disparity_threshold_;
     double obstacle_distance_;
     double obstacle_edge_jump_;
@@ -45,7 +45,7 @@ private:
     /// @brief creates a safety bubble around closest obstacle
     /// @param ranges preprocessed range vector to modify in place
     /// @param scan_msg the scan data from the lidar
-    void draw_safety_bubble(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg, vector<float> &ranges);
+    void draw_safety_bubble(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg, std::vector<float> &ranges);
 
     /// @brief Inflates (extends) obstacles by zeroing out ranges within a safety
     ///        bubble around points closer than a threshold, so the car doesn't clip corners.
@@ -57,7 +57,7 @@ private:
     /// @brief Find all gaps in the lidar ranges that are deeper than the minimum threshold
     /// @param ranges preprocessed and extended range vector
     /// @return a vector of start and end indices for each gap
-    std::vector<std::pair<int, int>> find_all_gaps(const vector<float>& ranges);
+    std::vector<std::pair<int, int>> find_all_gaps(const std::vector<float>& ranges);
 
     /// @brief Evaluates all found gaps and picks the best one based on width * depth, returns -1 if not foudn
     /// @param scan_msg The scan data from the lidar
@@ -66,8 +66,8 @@ private:
     /// @return a pair representing the start and end index of the best gap
     std::pair<int, int> pick_best_gap(
         const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
-        const vector<float>& ranges,
-        const vector<std::pair<int, int>>& gaps
+        const std::vector<float>& ranges,
+        const std::vector<std::pair<int, int>>& gaps
     );
 
     /// @brief Finds the exact index (center) to drive towards within the best gap
