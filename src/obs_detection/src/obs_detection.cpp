@@ -27,7 +27,7 @@ void ObsDetectionNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
 
     // TODO: implement lane bounding, forward_min proximity, and edge jump checks here
     // placeholder logic loop 
-
+    
     std_msgs::msg::Bool msg;
     msg.data = obstacle_detected;
     obstacle_pub_->publish(msg);
