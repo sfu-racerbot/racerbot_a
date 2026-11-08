@@ -1,0 +1,5 @@
+--- a/trajectory_planning_helpers/spline_approximation.py
++++ b/trajectory_planning_helpers/spline_approximation.py
+@@ -146,1 +146,1 @@
+-    return spatial.distance.euclidean(p, s)
++    return spatial.distance.euclidean(p, np.asarray(s).reshape(-1))

@@ -44,6 +44,11 @@ PurePursuit::PurePursuit() : Node("pure_pursuit_a_node")
         "/safety/brake", 10,
         std::bind(&PurePursuit::safety_brake_callback, this, std::placeholders::_1));
 
+     // Obstacle detection fallback
+    obs_fallback_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+        "obstacle_ahead", 10,
+        std::bind(&PurePursuit::obs_fallback_callback, this, std::placeholders::_1));
+
     // loading waypoints from the package share directory
     const std::string path =
         ament_index_cpp::get_package_share_directory("pure_pursuit_a") +
@@ -71,6 +76,18 @@ PurePursuit::PurePursuit() : Node("pure_pursuit_a_node")
 
 void PurePursuit::safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPtr safety_brake_msg) {
     safety_brake_engaged_ = safety_brake_msg->data;
+}
+
+void PurePursuit::obs_fallback_callback(const std_msgs::msg::Bool::ConstSharedPtr obs_fallback_msg) {
+    bool fallback = obs_fallback_msg->data;
+    if (fallback != obs_fallback_engaged_) {
+        if (fallback) {
+            RCLCPP_INFO(get_logger(), "obstacle fallback engaged");
+        } else {
+            RCLCPP_INFO(get_logger(), "obstacle fallback disengaged");
+        }
+    }
+    obs_fallback_engaged_ = fallback;
 }
 
 void PurePursuit::speed_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
@@ -153,6 +170,11 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
         drive_msg.header.stamp = this->now();
         drive_msg.drive.speed = 0.0;
         drive_pub_->publish(drive_msg);
+        return;
+    }
+
+    int obs_fallback_publisher_count = this->obs_fallback_sub_->get_publisher_count();
+    if (obs_fallback_publisher_count > 0 && obs_fallback_engaged_) {
         return;
     }
 
