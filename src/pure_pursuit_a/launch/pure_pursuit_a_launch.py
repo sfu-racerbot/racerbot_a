@@ -9,7 +9,7 @@ def generate_launch_description():
     odom_topic_arg = DeclareLaunchArgument(
         "odom_topic",
         default_value="/odom",
-        description="Odometry topic (pose source in sim, wheel odom for speed when use_pf is true)",
+        description="Odometry topic: pose + speed when use_pf is false, speed only when true (pose comes from /pf/pose/odom)",
     )
 
     use_pf_arg = DeclareLaunchArgument(
