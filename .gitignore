@@ -16,3 +16,7 @@ install/
 log/
 
 .cache/
+
+# Third-party clones (in third_party/README.md)
+third_party/raceline_optimization/
+third_party/trajectory_planning_helpers/

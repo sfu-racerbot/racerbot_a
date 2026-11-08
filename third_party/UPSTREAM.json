@@ -1,0 +1,16 @@
+{
+  "raceline_optimization": {
+    "url": "https://github.com/CL2-UWaterloo/Raceline-Optimization",
+    "commit": "9290c5d503462e46f7e3e9033002e7ddf165ba7b",
+    "license": "LGPL-3.0",
+    "patches": []
+  },
+  "trajectory_planning_helpers": {
+    "url": "https://github.com/CL2-UWaterloo/trajectory_planning_helpers",
+    "commit": "fde6cee2b7bf6dd7d0f8f3d32f6a1be3cfe35b56",
+    "license": "LGPL-3.0",
+    "patches": [
+      "patches/scipy-flat-vector.patch"
+    ]
+  }
+}

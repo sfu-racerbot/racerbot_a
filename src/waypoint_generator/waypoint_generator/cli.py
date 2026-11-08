@@ -29,6 +29,7 @@ def waypoint_directory():
 def main(argv=None):
     cli = argparse.ArgumentParser(description="Generate a geometry-checked centerline CSV")
     cli.add_argument("--map", required=True, help="Completed ROS map YAML")
+    cli.add_argument("--corridor-map", help="Aligned closed planning corridor; original map obstacles remain enforced")
     cli.add_argument("--spacing", type=float, default=0.15, help="Spacing in metres")
     cli.add_argument("--seed", type=float, nargs=2, metavar=("X", "Y"))
     cli.add_argument("--direction", choices=("ccw", "cw"), default="ccw")
@@ -53,7 +54,8 @@ def main(argv=None):
             raise FileExistsError("Output already exists; use --overwrite to replace it")
 
         vehicle = VehicleGeometry(**{f.name: getattr(args, f.name) for f in fields(VehicleGeometry)})
-        data = generate_waypoints(args.map, args.spacing, args.seed, args.direction, vehicle)
+        data = generate_waypoints(args.map, args.spacing, args.seed, args.direction, vehicle,
+                                  corridor_map=args.corridor_map)
         output.parent.mkdir(parents=True, exist_ok=True)
 
         # write a temporary file first, so a failed run keeps the old CSV
