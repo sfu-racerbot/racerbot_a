@@ -68,7 +68,7 @@ def generate_launch_description():
 
     max_speed_arg = DeclareLaunchArgument(
         "max_speed",
-        default_value="4.0",
+        default_value="5.5",
         description="Maximum forward speed in m/s",
     )
 

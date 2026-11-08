@@ -23,7 +23,7 @@ PurePursuit::PurePursuit() : Node("pure_pursuit_a_node")
     this->declare_parameter("lookahead_speed_gain", 0.1);
     this->declare_parameter("wheelbase", 0.33);
     this->declare_parameter("max_steering", 0.4189);  // about 24 deg
-    this->declare_parameter("max_speed", 4.0);
+    this->declare_parameter("max_speed", 5.5);
     this->declare_parameter("min_speed", 1.5);
 
     odom_topic_ = this->get_parameter("odom_topic").as_string();
