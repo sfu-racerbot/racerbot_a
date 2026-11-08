@@ -1,16 +1,18 @@
 #include "gap_finder_node.hpp"
+
 using std::vector;
 
 GapFinderNode::GapFinderNode() : Node("gap_finder_node")
 {
     RCLCPP_INFO(this->get_logger(), "Gap Finder node started");
 
-    // Declare with a default value
+    // ROS2 parameters
     this->declare_parameter("max_lidar_range", 10.0);
-    this->declare_parameter("car_width_extended", 0.55);
-    this->declare_parameter("disparity_threshold", 1.5);
-    this->declare_parameter("fov_half_angle_deg", 135.0);
+    this->declare_parameter("fov_half_angle_deg", 100.0);
+    this->declare_parameter("car_width", 0.4);
     this->declare_parameter("minimum_gap_threshold", 0.1);
+    this->declare_parameter("bubble_half_width", 0.45);
+    this->declare_parameter("disparity_threshold", 1.5);
     this->declare_parameter("obstacle_distance", 2.0);
     this->declare_parameter("obstacle_edge_jump", 0.5);
     this->declare_parameter("obstacle_max_width", 0.8);
@@ -20,9 +22,10 @@ GapFinderNode::GapFinderNode() : Node("gap_finder_node")
 
     // Read into member variables
     max_lidar_range_ = this->get_parameter("max_lidar_range").as_double();
-    car_width_extended_ = this->get_parameter("car_width_extended").as_double();
-    disparity_threshold_ = this->get_parameter("disparity_threshold").as_double();
     fov_half_angle_ = this->get_parameter("fov_half_angle_deg").as_double() * M_PI / 180.0;
+    car_width_ = this->get_parameter("car_width").as_double();
+    bubble_half_width_ = this->get_parameter("bubble_half_width").as_double();
+    disparity_threshold_ = this->get_parameter("disparity_threshold").as_double();
     minimum_gap_threshold_ = this->get_parameter("minimum_gap_threshold").as_double();
     obstacle_distance_ = this->get_parameter("obstacle_distance").as_double();
     obstacle_edge_jump_ = this->get_parameter("obstacle_edge_jump").as_double();
@@ -42,18 +45,22 @@ GapFinderNode::GapFinderNode() : Node("gap_finder_node")
 void GapFinderNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
 {
     auto ranges = preprocess_lidar(scan_msg);
+    draw_safety_bubble(scan_msg, ranges);
+
     const vector<float> raw_ranges = ranges; // before obstacle extension
+
     if (obstacle_detection_)
         extend_obstacles(scan_msg, ranges);
 
-    auto gap = find_furthest_gap(scan_msg, ranges);
+    auto gaps = find_all_gaps(ranges);
+    auto gap = pick_best_gap(scan_msg, ranges, gaps);
+    int best_point = pick_best_point(gap, ranges);
 
-    if (gap.first == -1)
-    {
+    if (best_point == -1) {
+        RCLCPP_WARN(this->get_logger(), "No valid gaps found");
+
         return;
     }
-
-    int furthest_point = find_furthest_point(ranges, gap);
 
     reactive::msg::Gap gap_msg;
     gap_msg.angles.reserve(gap.second - gap.first);
@@ -75,6 +82,236 @@ void GapFinderNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstShare
     gap_pub_->publish(gap_msg);
 }
 
+vector<float> GapFinderNode::preprocess_lidar(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
+{
+    const auto& ranges = scan_msg->ranges;
+    vector<float> processed(ranges.size(), 0.0f);
+
+    auto clean = [&](int i) {
+        const float r = ranges[i];
+
+        // NAN values are set to 0, anything below scan_msg->range min to 0,
+        // and everything above max_lidar_range_ is clamped
+
+        if (!std::isfinite(r) || r < scan_msg->range_min) {
+            return 0.0f;
+        }
+
+        // clamp values past max_lidar_range
+        return std::min(r, static_cast<float>(max_lidar_range_);
+    };
+
+    // Find the first and last ranges in the FOV using fov_half_angle_
+    const int first = std::max(0, std::ceil((-fov_half_angle_ - scan_msg->angle_min) / scan_msg->angle_increment));
+    const int last = std::max(0, std::ceil((fov_half_angle_ - scan_msg->angle_min) / scan_msg->angle_increment));
+
+    for (int i = first; i <= last; i++) {
+        // out of bounds for averaging, clean and continue
+        if (i == 0 || i == processed.size() - 1) {
+            processed[i] = clean(i);
+
+            continue;
+        }
+
+        // average scans, may not be better
+        processed[i] = (clean(i - 1) + clean(i) + clean(i + 1)) / 3.0f;
+    }
+
+    return ranges;
+}
+
+void GapFinderNode::draw_safety_bubble(
+    const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
+    vector<float> &ranges
+) {
+    bool found_closest = false;
+    size_t closest_index = 0;
+
+    for (size_t i = 1; i < ranges.size(); ++i) {
+        if (ranges[i] == 0) {
+            continue; //ignore 0s
+        }
+
+        // only consider points inside a box ahead of the car (bubble_lookahead_ x bubble_half_width_)
+        float angle = scan_msg->angle_min + scan_msg->angle_increment * i;
+        float ahead = ranges[i] * std::cos(angle);
+        float beside = ranges[i] * std::sin(angle);
+
+        if (ahead <= 0.0f || ahead > bubble_lookahead_ || std::abs(beside) > bubble_half_width_) {
+            continue;
+        }
+
+        if (!found_closest || ranges[i] < ranges[closest_index]) {
+            found_closest = true;
+            closest_index = i;
+        }
+    }
+
+    if (!found_closest)
+        return;
+
+    //Figure out how deep into the bubble box the closest point is 
+    float d_angle = scan_msg->angle_min + scan_msg->angle_increment * closest_index;
+    double d_beside = ranges[closest_index] * std::sin(d_angle);
+    double depth = std::clamp((bubble_half_width_ - std::abs(d_beside)) / full_bubble_threshold_, 0.0, 1.0);
+
+    // Draw safety bubble by calculating theta for the arc made by r = closest
+    // point with s = car width
+
+    const double n = static_cast<double>(ranges.size());
+    const double offset = std::abs(static_cast<double>(closest_index) - n / 2.0);
+
+    // Adjust size of bubble based on the angle between the closest obstacle and
+    // the car's facing direction
+    double direction_adjustment = std::max(1.0 - 2.0 * offset / n, 0.0);
+
+    // Adjust based on distance
+    double distance_adjustment = std::min(0.1 / ranges[closest_index], 1.0);
+
+    double theta = 2.0 * std::atan2(
+        car_width_ * safety_bubble_scale_ * std::max(direction_adjustment, distance_adjustment),
+        ranges[closest_index]
+    );
+
+    size_t index_increment = (theta / scan_msg->angle_increment) / 2; // Used on each side so divide by 2
+
+    size_t start = (closest_index > index_increment) ? closest_index - index_increment : 0;
+    size_t end = std::min(closest_index + index_increment, n);
+    
+    double depth_smoothed = std::clamp((depth - 0.2) / 0.8, 0.0, 1.0);
+
+    for (size_t i = start; i < end; i++) {
+      ranges[i] *= (1 - depth_smoothed);
+    }
+}
+
+vector<std::pair<int, int>> GapFinderNode::find_all_gaps(const vector<float>& ranges) {
+    vector<std::pair<int, int>> gaps;
+
+    size_t i = 0;
+
+    while (i < ranges.size()) {
+        // skip points that aren't part of a "free" gap
+        if (ranges[i] <= minimum_gap_threshold_) {
+            i++;
+            continue;
+        }
+
+        // Found the start of a gap, walk forward to its end
+        size_t gap_start = i;
+        while (i < ranges.size() && ranges[i] > minimum_gap_threshold_) {
+            i++;
+        }
+
+        size_t gap_end = i; // exclusive
+
+        gaps.push_back({static_cast<int>(gap_start), static_cast<int>(gap_end)});
+    }
+
+    return gaps;
+}
+
+std::pair<int, int> GapFinderNode::pick_best_gap(
+    const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
+    const vector<float>& ranges,
+    const vector<std::pair<int, int>>& gaps
+) {
+    std::pair<int, int> best_gap = {-1, -1};
+    float best_score = -1.0f;
+
+    for (const auto &gap : gaps) {
+        int gap_start = gap.first;
+        int gap_end = gap.second;
+
+        // Calculate average depth of the gap
+        float sum = 0.0f;
+
+        for (int i = gap_start; i < gap_end; ++i) {
+            sum += ranges[i];
+        }
+        float avg_depth = sum / (gap_end - gap_start);
+
+        // Ensure the gap is wide enough for the car
+        size_t min_width = static_cast<size_t>((car_width_ / avg_depth) / scan_msg->angle_increment);
+        if (static_cast<size_t>(gap_end - gap_start) < min_width)
+            continue;
+
+        // Score to find best gap by favoring gaps that are both wide and deep
+        float score = 0.0f;
+
+        for (int j = gap_start; j < gap_end; j++) {
+          score += ranges[j] - minimum_gap_threshold_;
+        }
+
+        if (score > best_score) {
+            best_score = score;
+            best_gap = gap;
+        }
+    }
+
+    return best_gap;
+}
+
+int GapFinderNode::pick_best_point(const std::pair<int, int>& gap, const vector<float>& ranges)
+{
+    if (best_gap.first == -1 || best_gap.second == -1) {
+        return -1; // invalid gap
+    }
+
+    // Range-weighted average index, so the point leans toward the deepest part of the gap
+    double weight_sum = 0.0;
+    double index_sum = 0.0;
+    for (int i = best_gap.first; i < best_gap.second; i++) {
+        weight_sum += ranges[i];
+        index_sum += ranges[i] * i;
+    }
+
+    return static_cast<int>(std::round(index_sum / weight_sum));
+}
+
+void GapFinderNode::extend_obstacles(
+    const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
+    vector<float> &ranges
+) {
+    const vector<float> original = ranges; // raw values for disparity comparisons
+
+    float prev_reading = original[0];
+
+    for (size_t i = 0; i < original.size(); ++i)
+    {
+        float current_reading = original[i];
+
+        if (std::abs(prev_reading - current_reading) <= disparity_threshold_)
+            continue;
+        
+        float closer_range = std::min(prev_reading, current_reading);
+
+        if (closer_range > 1e-3f) // avoid divide-by-zero / near-zero blowup
+        {
+            double dynamic_width = car_width_;
+            if (closer_range < 1.0f)
+            {
+                dynamic_width = std::max(car_width_* closer_range, 0.2);
+            }
+
+            double theta = 2.0 * std::atan2(dynamic_width / 2.0, closer_range);
+            theta = std::min(theta, M_PI / 2.0);
+
+            size_t index_increment = static_cast<size_t>((theta / scan_msg->angle_increment) / 2.0);
+            size_t start = (i > index_increment) ? i - index_increment : 0;
+            size_t end = std::min(i + index_increment + 1, ranges.size());
+
+            for (size_t j = start; j < end; ++j)
+            {
+                ranges[j] = std::min(ranges[j], closer_range);
+            }
+        }
+        
+
+        prev_reading = current_reading; // compare against raw values, not mutated output
+    }
+}
+
 bool GapFinderNode::detect_obstacle(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
                                     const vector<float> &raw, double target_angle)
 {
@@ -94,7 +331,7 @@ bool GapFinderNode::detect_obstacle(const sensor_msgs::msg::LaserScan::ConstShar
     const double scan_limit = std::min(fov_half_angle_, M_PI / 2.0);
 
     // Closest reading inside the car's lane
-    const double half_width = car_width_extended_ / 2.0;
+    const double half_width = car_width_ / 2.0;
     int closest = -1;
     float forward_min = std::numeric_limits<float>::max();
     for (int i = 0; i < n; ++i)
@@ -184,160 +421,6 @@ bool GapFinderNode::update_obstacle_state(bool detected)
     return current_state;
 }
 
-vector<float> GapFinderNode::preprocess_lidar(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg)
-{
-    vector<float> ranges = scan_msg->ranges;
-
-    // Capping values past max_lidar_range, and rejecting values past fov angle range
-    for (size_t i = 0; i < ranges.size(); ++i)
-    {
-        float r = ranges[i];
-        if (!std::isfinite(r))
-            r = (std::isnan(r) || r < 0) ? 0.0f : max_lidar_range_; // NaN = blocked, +inf = free
-        ranges[i] = std::clamp(r, 0.0f, static_cast<float>(max_lidar_range_));
-    }
-
-    return ranges;
-}
-
-void GapFinderNode::extend_obstacles(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
-                                     vector<float> &ranges)
-{
-    if (ranges.empty())
-        return;
-
-    const vector<float> original = ranges; // raw values for disparity comparisons
-
-    float prev_reading = original[0];
-    for (size_t i = 0; i < original.size(); ++i)
-    {
-        float current_reading = original[i];
-
-        if (std::abs(prev_reading - current_reading) > disparity_threshold_)
-        {
-            float closer_range = std::min(prev_reading, current_reading);
-
-            if (closer_range > 1e-3f) // avoid divide-by-zero / near-zero blowup
-            {
-                double dynamic_width = car_width_extended_;
-                if (closer_range < 1.0f)
-                {
-                    dynamic_width = std::max(car_width_extended_ * closer_range, 0.2);
-                }
-
-                double theta = 2.0 * std::atan2(dynamic_width / 2.0, closer_range);
-                theta = std::min(theta, M_PI / 2.0);
-
-                size_t index_increment = static_cast<size_t>((theta / scan_msg->angle_increment) / 2.0);
-                size_t start = (i > index_increment) ? i - index_increment : 0;
-                size_t end = std::min(i + index_increment + 1, ranges.size());
-
-                for (size_t j = start; j < end; ++j)
-                {
-                    ranges[j] = std::min(ranges[j], closer_range);
-                }
-            }
-        }
-
-        prev_reading = current_reading; // compare against raw values, not mutated output
-    }
-}
-
-std::pair<int, int> GapFinderNode::find_furthest_gap(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg,
-                                                     const vector<float> &ranges)
-{
-    int best_start = -1;
-    int best_end = -1;
-    float furthest_range = 0.0;
-
-    size_t i = 0;
-    while (i < ranges.size())
-    {
-        // Skip points that aren't part of a "free" gap
-        if (ranges[i] <= minimum_gap_threshold_)
-        {
-            ++i;
-            continue;
-        }
-
-        // Found the start of a gap - walk forward to find its end
-        size_t gap_start = i;
-        while (i < ranges.size() && ranges[i] > minimum_gap_threshold_)
-        {
-            ++i;
-        }
-        size_t gap_end = i; // exclusive
-
-        // Check if the gap is wide enough for the car to fit through,
-        // using the closest range within the gap as the worst-case radius
-        float min_range_in_gap = *std::min_element(ranges.begin() + gap_start, ranges.begin() + gap_end);
-        double theta = 2.0 * std::atan2(car_width_extended_ / 2.0, min_range_in_gap);
-        size_t min_index_width = static_cast<size_t>(theta / scan_msg->angle_increment);
-
-        if ((gap_end - gap_start) < min_index_width)
-        {
-            continue; // gap too narrow for the car, skip it
-        }
-
-        // Gap is valid - Score it based on depth, width, and center alignment
-        float max_depth = *std::max_element(ranges.begin() + gap_start, ranges.begin() + gap_end);
-        double gap_center_angle = scan_msg->angle_min + scan_msg->angle_increment * (gap_start + gap_end) / 2.0;
-        
-        // Tune these weights during track testing
-        const double w_depth = 1.0; 
-        const double w_width = 0.05; 
-        const double w_angle = 1.5; // High penalty for gaps far to the side
-        
-        double score = (w_depth * max_depth) + (w_width * (gap_end - gap_start)) - (w_angle * std::abs(gap_center_angle));
-        
-        if (score > furthest_range) // Reusing furthest_range variable as best_score
-        {
-            furthest_range = score; 
-            best_start = static_cast<int>(gap_start);
-            best_end = static_cast<int>(gap_end);
-        }
-    }
-
-    return {best_start, best_end};
-}
-
-int GapFinderNode::find_furthest_point(vector<float> &ranges, const std::pair<int, int> &gap)
-{
-    if (gap.first == -1)
-        return -1;
-
-    float max_r = 0.0f;
-    for (int i = gap.first; i < gap.second; ++i)
-        max_r = std::max(max_r, ranges[i]);
-    const float cutoff = max_r - 0.1f;
-
-    // Center of the longest run of near-furthest readings
-    int best_mid = gap.first;
-    int best_len = 0;
-    int i = gap.first;
-    while (i < gap.second)
-    {
-        if (!(ranges[i] >= cutoff))
-        {
-            ++i;
-            continue;
-        } // also skips NaN
-        const int start = i;
-        while (i < gap.second && ranges[i] >= cutoff)
-            ++i;
-        if (i - start > best_len)
-        {
-            best_len = i - start;
-            best_mid = (start + i - 1) / 2;
-        }
-    }
-
-   // Blend the furthest point with the geometric center of the gap
-    int gap_center = gap.first + (gap.second - gap.first) / 2;
-    double alpha = 0.6; // 60% furthest point, 40% gap center (tune as needed)
-    
-    return static_cast<int>(alpha * best_mid + (1.0 - alpha) * gap_center);
-}
 
 int main(int argc, char **argv)
 {
