@@ -140,6 +140,12 @@ def generate_launch_description():
         description="Number of frames to hold obstacle state after detection.",
     )
 
+    hard_turn_threshold_deg = DeclareLaunchArgument(
+        "hard_turn_threshold_deg",
+        default_value="16.0",
+        description="What angle should the car consider to be a 'hard turn'",
+    )
+
     return LaunchDescription(
         [
             enable_safety_arg,
@@ -165,6 +171,7 @@ def generate_launch_description():
             obstacle_max_width_arg,
             obstacle_min_target_angle_deg_arg,
             obstacle_hold_frames_arg,
+            hard_turn_threshold_deg,
             # Launch gap_finder_node
             Node(
                 package="reactive",
@@ -219,6 +226,9 @@ def generate_launch_description():
                         "speed_curve_scale": LaunchConfiguration("speed_curve_scale"),
                         "max_slew_rate": LaunchConfiguration("max_slew_rate"),
                         "enable_safety": LaunchConfiguration("enable_safety"),
+                        "hard_turn_threshold_deg": LaunchConfiguration(
+                            "hard_turn_threshold_deg"
+                        ),
                     }
                 ],
                 remappings=[("/drive", drive_topic), ("/scan", scan_topic)],
