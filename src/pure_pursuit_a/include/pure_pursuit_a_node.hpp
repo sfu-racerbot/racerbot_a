@@ -28,6 +28,7 @@ private:
     double current_speed_ = 0.0;
     bool safety_brake_engaged_ = false;
     bool obs_fallback_engaged_ = false;
+    bool initialized_ = false;     // false at startup or when the car is lost, then the closest waypoint is found
     bool use_pf_;                  // false = sim ground truth, true = particle filter (irl)
     std::string odom_topic_;       // Odometry topic: pose + speed when use_pf is false, speed only when true (pose comes from /pf/pose/odom)
     bool enable_safety_;           // whether safety is enabled (see safety_node)
@@ -40,7 +41,6 @@ private:
     double max_steering_;          // steering angle limit (rad)
     double max_speed_;             // speed on straights (m/s)
     double min_speed_;             // speed at full steering lock (m/s)
-    bool initialized_ = false;     // false until first odom, then closest waypoint is found once
 
     void speed_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg);
 
