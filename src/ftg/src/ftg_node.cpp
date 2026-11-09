@@ -29,7 +29,6 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     this->declare_parameter("slow_range", 0.5);
     this->declare_parameter("fast_range", 2.0);
     this->declare_parameter("slow_speed", 3.0);
-    this->declare_parameter("low_angle_tolerance", 2.5);
     this->declare_parameter("full_bubble_threshold", 0.25);
 
     max_speed_ = this->get_parameter("max_speed").as_double();
@@ -54,9 +53,7 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     slow_range_ = this->get_parameter("slow_range").as_double();
     fast_range_ = this->get_parameter("fast_range").as_double();
     slow_speed_ = this->get_parameter("slow_speed").as_double();
-    low_angle_tolerance_ = this->get_parameter("low_angle_tolerance").as_double();
     full_bubble_threshold_ = this->get_parameter("full_bubble_threshold").as_double();
-    prev_angle_ = 0;
     launch_deadline_.reset();
 
     this->drive_msg_publisher = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
@@ -284,12 +281,7 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
         steering_angle = 0.0f;
     }
 
-    float abs_angle = std::abs(target_angle); // Based on target_angle to avoid smoothing delay
-    //Add a new deadzone for speed, so small turning doesn't slow us down in straights
-    if (abs_angle < low_angle_tolerance_ * steering_deadzone_) {
-      double n = (std::max(abs_angle - steering_deadzone_, 0.0) / ((low_angle_tolerance_ - 1) * steering_deadzone_));
-      abs_angle *= n * n;
-    }
+    float abs_angle = std::abs(steering_angle);
 
     // Limit 1: slow down for sharp turns (v = sqrt(a * R), R = wheelbase / tan(steer))
     float abs_tan = std::tan(abs_angle);

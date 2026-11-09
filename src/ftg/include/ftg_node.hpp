@@ -29,7 +29,6 @@ private:
     bool enable_safety_;
     bool safety_brake_engaged_;
     double safety_bubble_scale_;
-    double prev_angle_;
     double bubble_lookahead_;     // how far ahead an obj can be and get a bubble
     double bubble_half_width_;    // how far either side of the car's centreline a obj can be and get bubble
     double wheelbase_;            // distance between front and rear axles
@@ -45,7 +44,6 @@ private:
     double slow_range_;           // Target range distance to hit min speed 
     double fast_range_;           // Target range distance to hit max speed 
     double slow_speed_;           // Min speed for speed distance determination, NOT minimum overall speed
-    double low_angle_tolerance_;   // Multiple of degrees from the steering deadzone to maintian higher speeds
     double full_bubble_threshold_; // Dist into bubble box needed for full bubbling.
 
     /// @brief clean lidar scan
