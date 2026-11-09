@@ -16,7 +16,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
 
     this->declare_parameter("use_fallback_method", false);
     this->declare_parameter("degree", 2);
-    this->declare_parameter("steering_gain", 1.0);
+    this->declare_parameter("steering_gain", 2.0);
     this->declare_parameter("k_samples", 200);
     this->declare_parameter("max_steering_angle", 20.0);
     this->declare_parameter("max_speed", 4.0);
@@ -25,7 +25,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     this->declare_parameter("speed_curve_scale", 1.0);
     this->declare_parameter("max_slew_rate", 100.0);
     this->declare_parameter("enable_safety", true);
-    this->declare_parameter("hard_turn_threshold_deg", 75.0);
+    this->declare_parameter("hard_turn_threshold_deg", 16.0);
 
     use_fallback_method_ = this->get_parameter("use_fallback_method").as_bool();
     RCLCPP_INFO(this->get_logger(), "Using follow method: '%s'", use_fallback_method_ ? "drive_best_point" : "least_squares");

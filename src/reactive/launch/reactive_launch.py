@@ -26,7 +26,7 @@ def generate_launch_description():
 
     steering_gain = DeclareLaunchArgument(
         "steering_gain",
-        default_value="1.0",
+        default_value="2.0",
         description="Gain applied to steering toward the selected gap curve",
     )
 
