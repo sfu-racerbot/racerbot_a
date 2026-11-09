@@ -10,19 +10,27 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(ackermann_msgs REQUIRED)
 
+# Obs Detection Node
 add_executable(obs_detection src/obs_detection.cpp)
-ament_target_dependencies(obs_detection rclcpp sensor_msgs geometry_msgs)
-install(TARGETS obs_detection DESTINATION lib/${PROJECT_NAME})
+ament_target_dependencies(obs_detection rclcpp sensor_msgs geometry_msgs std_msgs)
+
+# Fallback Control Multiplexer Node
+add_executable(fallback_ctrl src/fallback_ctrl.cpp)
+ament_target_dependencies(fallback_ctrl rclcpp std_msgs ackermann_msgs)
+
+# Install executables
+install(TARGETS
+  obs_detection
+  fallback_ctrl
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
