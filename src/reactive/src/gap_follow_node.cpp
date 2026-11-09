@@ -218,8 +218,8 @@ double GapFollowNode::range_to_speed_function(double range)
     range = std::clamp(range, min_range, max_range);
 
     const double a = 2.5;
-    const double b = -0.3;
-    const double c = 2.3;
+    const double b = 0.5;
+    const double c = 4.0;
 
     double y = speed_curve_scale_ * (a * std::log(range + b) + c);
     return std::clamp(y, min_speed_, max_speed_);
