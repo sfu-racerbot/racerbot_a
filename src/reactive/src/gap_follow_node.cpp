@@ -23,8 +23,9 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     this->declare_parameter("min_speed", 0.5);
     this->declare_parameter("hysteresis_alpha", 0.3);
     this->declare_parameter("speed_curve_scale", 1.0);
-    this->declare_parameter("max_slew_rate", 170.0);
+    this->declare_parameter("max_slew_rate", 100.0);
     this->declare_parameter("enable_safety", true);
+    this->declare_parameter("hard_turn_threshold_deg", 75.0);
 
     use_fallback_method_ = this->get_parameter("use_fallback_method").as_bool();
     RCLCPP_INFO(this->get_logger(), "Using follow method: '%s'", use_fallback_method_ ? "drive_best_point" : "least_squares");
@@ -40,6 +41,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     hysteresis_alpha_ = this->get_parameter("hysteresis_alpha").as_double();
     speed_curve_scale_ = this->get_parameter("speed_curve_scale").as_double();
     max_slew_rate_ = DEG2RAD(this->get_parameter("max_slew_rate").as_double());
+    hard_turnthreshold = DEG2RAD(this->get_parameter("hard_turn_threshold_deg").as_double());
 }
 
 void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_msg)
@@ -116,6 +118,13 @@ void GapFollowNode::least_squares_pathfinding(const reactive::msg::Gap::ConstSha
     Eigen::VectorXd coefficients = fit_polynomial(x, y);
 
     double steering_angle = compute_steering_angle(coefficients, x, max_lookahead);
+
+    const bool hard_turn = std::abs(steering_angle) > hard_turnthreshold;
+    if (hard_turn)
+    {
+        steering_angle = std::copysign(max_steeringangle, steering_angle);
+    }
+    const double alpha = hard_turn ? 1.0 : hysteresisalpha;
 
     double now_sec = this->now().seconds();
     double dt = (last_callback_time_ > 0.0) ? (now_sec - last_callback_time_) : 0.02;
