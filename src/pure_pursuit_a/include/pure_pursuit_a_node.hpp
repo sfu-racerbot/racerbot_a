@@ -20,16 +20,18 @@ public:
 
 private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr safety_brake_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr obs_fallback_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr speed_sub_;
     std::vector<Waypoint> waypoints_;
-    bool use_pf_;                 // false = sim ground truth, true = particle filter (irl)
-    std::string odom_topic_;
     double current_speed_ = 0.0;
-    bool enable_safety_;
-    bool safety_brake_engaged_;
-    double safety_bubble_scale_;
+    bool safety_brake_engaged_ = false;
+    bool obs_fallback_engaged_ = false;
+    bool initialized_ = false;     // false at startup or when the car is lost, then the closest waypoint is found
+    bool use_pf_;                  // false = sim ground truth, true = particle filter (irl)
+    std::string odom_topic_;       // Odometry topic: pose + speed when use_pf is false, speed only when true (pose comes from /pf/pose/odom)
+    bool enable_safety_;           // whether safety is enabled (see safety_node)
     double lookahead_base_;        // base lookahead L0 (m)
     double lookahead_min_;         // lower clamp (m)
     double lookahead_max_;         // upper clamp (m)
@@ -39,12 +41,14 @@ private:
     double max_steering_;          // steering angle limit (rad)
     double max_speed_;             // speed on straights (m/s)
     double min_speed_;             // speed at full steering lock (m/s)
-    bool initialized_ = false;     // false until first odom, then closest waypoint is found once
 
     void speed_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg);
 
     /// @brief Runs everytime something is published to the safety brake topic
     void safety_brake_callback(const std_msgs::msg::Bool::ConstSharedPtr safety_brake_msg);
+
+    /// @brief Runs everytime something is published to the obstacle fallback topic.
+    void obs_fallback_callback(const std_msgs::msg::Bool::ConstSharedPtr obs_fallback_msg);
 
     /// @brief Loads the waypoint path from a file into waypoints_.
     /// @param path Path to the waypoint file (e.g. a CSV with x, y per row).
@@ -65,4 +69,7 @@ private:
     ///        distance in front of the car, and computes the pure pursuit steering.
     /// @param msg Odometry message with the car's pose and velocity.
     void odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg);
+
+    /// @brief Publishes a zero-speed drive command.
+    void stop();
 };

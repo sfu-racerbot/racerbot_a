@@ -20,7 +20,6 @@ DisparityExtenderNode::DisparityExtenderNode() : Node("disparity_extender_node")
     this->declare_parameter("wheelbase", 0.33);
     this->declare_parameter("max_lateral_acc", 3.5);
     this->declare_parameter("enable_safety", true);
-    // Add enable_stop param that stops the car if no valid gap found
 
     // Launch
     this->declare_parameter("enable_launch", false);
