@@ -8,28 +8,28 @@ using std::vector;
 FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     RCLCPP_INFO(this->get_logger(), "Follow the gap node started");
     // ROS2 parameters
-    this->declare_parameter("max_speed", 4.5);
-    this->declare_parameter("min_speed", 0.7);
+    this->declare_parameter("max_speed", 5.0);
+    this->declare_parameter("min_speed", 0.4);
     this->declare_parameter("max_lidar_range", 10.0);
     this->declare_parameter("fov_half_angle_deg", 100.0);
     this->declare_parameter("car_width", 0.4);
     this->declare_parameter("minimum_gap_threshold", 1.0);
     this->declare_parameter("enable_safety", true);
-    this->declare_parameter("safety_bubble_scale", 0.5);
+    this->declare_parameter("safety_bubble_scale", 0.7);
     this->declare_parameter("bubble_lookahead", 3.0);
-    this->declare_parameter("bubble_half_width", 0.45);
+    this->declare_parameter("bubble_half_width", 0.5);
     this->declare_parameter("wheelbase", 0.33);
-    this->declare_parameter("lookahead_max", 1.8);
-    this->declare_parameter("steering_deadzone",2.0);
+    this->declare_parameter("lookahead_max", 2.0);
+    this->declare_parameter("steering_deadzone",1.5);
     this->declare_parameter("steering_angle_max", 0.349);
     this->declare_parameter("max_lateral_acc",3.5);
     this->declare_parameter("enable_launch", false);
     this->declare_parameter("launch_duration", 2.5); 
     this->declare_parameter("launch_speed", 7.0);
-    this->declare_parameter("slow_range", 0.5);
-    this->declare_parameter("fast_range", 2.0);
-    this->declare_parameter("slow_speed", 3.0);
-    this->declare_parameter("full_bubble_threshold", 0.25);
+    this->declare_parameter("slow_range", 0.75);
+    this->declare_parameter("fast_range", 2.7);
+    this->declare_parameter("slow_speed", 2.5);
+    this->declare_parameter("full_bubble_threshold", 0.15);
 
     max_speed_ = this->get_parameter("max_speed").as_double();
     min_speed_ = this->get_parameter("min_speed").as_double();

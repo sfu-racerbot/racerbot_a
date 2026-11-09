@@ -110,7 +110,7 @@ def generate_launch_description():
 
     slow_speed_arg = DeclareLaunchArgument(
         "slow_speed",
-        default_value="2.0",
+        default_value="2.5",
         description="Speed to slow to at and under slow_range. Further minimized by turning, not minimum overall speed."
     )
 
