@@ -48,6 +48,57 @@ def generate_launch_description():
         description="Maximum lateral obstacle width allowed, in meters.",
     )
 
+    # 1. Obstacle Detection Node
+    obs_detection_node = Node(
+        package="obs_detection",
+        executable="obs_detection",
+        name="obs_detection_node",
+        output="screen",
+        parameters=[{
+            "obstacle_distance": LaunchConfiguration("obstacle_distance"),
+            "obstacle_edge_jump": LaunchConfiguration("obstacle_edge_jump"),
+            "car_width_extended": LaunchConfiguration("car_width_extended"),
+            "max_lidar_range": LaunchConfiguration("max_lidar_range"),
+            "fov_half_angle_deg": LaunchConfiguration("fov_half_angle_deg"),
+            "obstacle_min_target_angle_deg": LaunchConfiguration(
+                "obstacle_min_target_angle_deg"
+            ),
+            "obstacle_max_width": LaunchConfiguration("obstacle_max_width"),
+        }],
+    )
+
+    # 2. Fallback Control Multiplexer Node (Arbitrates between PP and FTG)
+    fallback_ctrl_node = Node(
+        package="obs_detection",
+        executable="fallback_ctrl",
+        name="fallback_ctrl_node",
+        output="screen",
+    )
+
+    # 3. Pure Pursuit Node (Make sure package/executable names match your workspace)
+    pure_pursuit_node = Node(
+        package="pure_pursuit_a",
+        executable="pure_pursuit_a_node", # Adjust if your executable name differs
+        name="pure_pursuit_node",
+        output="screen",
+        # Remap its output so it feeds into our fallback controller's sandbox topic
+        remappings=[
+            ('/drive', '/pure_pursuit/drive')
+        ]
+    )
+
+    # 4. Follow The Gap / Reactive Node
+    ftg_node = Node(
+        package="ftg", # Adjust package name if different
+        executable="ftg_node", # Adjust executable name if different
+        name="ftg_node",
+        output="screen",
+        # Remap its output so it feeds into our fallback controller's sandbox topic
+        remappings=[
+            ('/drive', '/ftg/drive')
+        ]
+    )
+
     return LaunchDescription([
         obstacle_distance_arg,
         obstacle_edge_jump_arg,
@@ -56,21 +107,8 @@ def generate_launch_description():
         fov_half_angle_deg_arg,
         obstacle_min_target_angle_deg_arg,
         obstacle_max_width_arg,
-        Node(
-            package="obs_detection",
-            executable="obs_detection",
-            name="obs_detection_node",
-            output="screen",
-            parameters=[{
-                "obstacle_distance": LaunchConfiguration("obstacle_distance"),
-                "obstacle_edge_jump": LaunchConfiguration("obstacle_edge_jump"),
-                "car_width_extended": LaunchConfiguration("car_width_extended"),
-                "max_lidar_range": LaunchConfiguration("max_lidar_range"),
-                "fov_half_angle_deg": LaunchConfiguration("fov_half_angle_deg"),
-                "obstacle_min_target_angle_deg": LaunchConfiguration(
-                    "obstacle_min_target_angle_deg"
-                ),
-                "obstacle_max_width": LaunchConfiguration("obstacle_max_width"),
-            }],
-        ),
+        obs_detection_node,
+        fallback_ctrl_node,
+        pure_pursuit_node,
+        ftg_node,
     ])
