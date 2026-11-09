@@ -5,21 +5,21 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
     RCLCPP_INFO(this->get_logger(), "Obs_detection node started");
 
     // declare node parameters 
-    this->declare_parameter("obstacle_distance", 2.0);
+    this->declare_parameter("max_obstacle_distance", 10.0);
     this->declare_parameter("obstacle_edge_jump", 0.5);
     this->declare_parameter("car_width_extended", 0.55);
-    this->declare_parameter("max_lidar_range", 10.0);
     this->declare_parameter("fov_half_angle_deg", 135.0);
     this->declare_parameter("obstacle_min_target_angle_deg", 0.0);
     this->declare_parameter("obstacle_max_width", 0.8);
+    this->declare_parameter("obstacle_hold_frames", 8);
 
-    obstacle_distance_ = this->get_parameter("obstacle_distance").as_double();
+    max_obstacle_distance_ = this->get_parameter("max_obstacle_distance").as_double();
     obstacle_edge_jump_ = this->get_parameter("obstacle_edge_jump").as_double();
     car_width_extended_ = this->get_parameter("car_width_extended").as_double();
-    max_lidar_range_ = this->get_parameter("max_lidar_range").as_double();
     obstacle_max_width_ = this->get_parameter("obstacle_max_width").as_double();
     fov_half_angle_ = this->get_parameter("fov_half_angle_deg").as_double() * M_PI / 180.0;
     obstacle_min_target_angle_ = this->get_parameter("obstacle_min_target_angle_deg").as_double() * M_PI / 180.0;
+    obstacle_hold_frames_ = this->get_parameter("obstacle_hold_frames").as_int();
 
     scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "scan", 10,
@@ -31,7 +31,7 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
 
 float ObsDetectionNode::range_at(int i, const std::vector<float>& processed_ranges){
     const float r = processed_ranges[i];
-    return (std::isfinite(r) && r > 0.05f) ? r : static_cast<float>(max_lidar_range_);
+    return (std::isfinite(r) && r > 0.05f) ? r : static_cast<float>(max_obstacle_distance_);
 };
 
 double ObsDetectionNode::angle_at(int i, ConstScanMessagePtr scan_msg){
@@ -47,9 +47,9 @@ std::vector<float> ObsDetectionNode::preprocess_lidar(ConstScanMessagePtr scan_m
     for(size_t i = 0; i < ranges.size(); i++){
         float range = ranges[i];
         if(!std::isfinite(range)){
-            range = (std::isnan(range) || range < 0) ? 0.0f : max_lidar_range_;
+            range = (std::isnan(range) || range < 0) ? 0.0f : max_obstacle_distance_;
         }
-        ranges[i] = std::clamp(range, 0.0f, static_cast<float>(max_lidar_range_));
+        ranges[i] = std::clamp(range, 0.0f, static_cast<float>(max_obstacle_distance_));
     }
     return ranges;
 }
@@ -61,30 +61,24 @@ void ObsDetectionNode::lidar_callback(ConstScanMessagePtr scan_msg)
 
     std::vector<float> processed_ranges = preprocess_lidar(scan_msg);
 
-    // TODO for Hendrick: Implement logic prior to calling detectObstacleAhead, and publish the return of detectObstacleAhead to the obstacle_ahead topic
-    // Look at gap_finder_node.cpp/.hpp to get a better idea
-
-
-    float target_angle_temp = 0.0; //this is a temp variable to hold target_angle
-
-    auto message = detectObstacleAhead(scan_msg, processed_ranges, target_angle_temp);
-
+    auto message = detectObstacleAhead(scan_msg, processed_ranges);
+    
     obstacle_pub_->publish(message);
-
 
 }
 
 std_msgs::msg::Bool ObsDetectionNode::detectObstacleAhead(ConstScanMessagePtr scan_msg, 
-const std::vector<float>& processed_ranges, double target_angle){
+const std::vector<float>& processed_ranges){
     std_msgs::msg::Bool msg;
     msg.data = false;
 
     // first find our candidate (chooses the laser with closest point in our lane currently)
     auto candidate = find_closest_candidate(scan_msg, processed_ranges);
 
-    if (!candidate)
+    if (!candidate){
+        msg.data = update_obstacle_state(false);
         return msg;
-
+    }
     /* 
         see if the candidate has left and right edges (the jumps "(a, b)" 
         in distance for a reading such as say 8 7 (9 2) 2 (2 9) 9 8 
@@ -93,14 +87,19 @@ const std::vector<float>& processed_ranges, double target_angle){
 
     auto edges = find_obstacle_edges(scan_msg, processed_ranges, *candidate);
 
-    if (!edges)
+    if (!edges){
+        msg.data = update_obstacle_state(false);
         return msg;
+    }
 
-    //compares the ftg found gap angle to the 
-    if(!is_obstacle(scan_msg, processed_ranges, *edges, target_angle)){
-       return msg;
-    };
     
+    if(!is_obstacle(scan_msg, processed_ranges, *edges)){
+        msg.data = update_obstacle_state(false);
+        return msg;
+    };
+
+    
+    update_obstacle_state(true);
    
     msg.data = true;
 
@@ -197,13 +196,42 @@ std::optional<Edges>  ObsDetectionNode::find_obstacle_edges(ConstScanMessagePtr 
 }
 
 bool 
-ObsDetectionNode::is_obstacle(ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges, Edges edges, float target_angle){
+ObsDetectionNode::is_obstacle(ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges, Edges edges){
     const double y_left = range_at(edges.left, processed_ranges) * std::sin(angle_at(edges.left, scan_msg));
     const double y_right = range_at(edges.right, processed_ranges) * std::sin(angle_at(edges.right, scan_msg));
     if (y_left - y_right > obstacle_max_width_)
         return false;
-    return std::abs(target_angle) >= obstacle_min_target_angle_;
+    return true;
 }
+
+bool ObsDetectionNode::update_obstacle_state(bool detected)
+{
+    bool prev_state = (obstacle_hold_counter_ > 0);
+
+    if (detected)
+    {
+        obstacle_hold_counter_ = obstacle_hold_frames_;
+    }
+    else if (obstacle_hold_counter_ > 0)
+    {
+        --obstacle_hold_counter_;
+    }
+
+    bool current_state = (obstacle_hold_counter_ > 0);
+
+    // Log only on state transitions to avoid spamming the console
+    if (!prev_state && current_state)
+    {
+        RCLCPP_WARN(this->get_logger(), "Obstacle detected ahead! Engaging braking override.");
+    }
+    else if (prev_state && !current_state)
+    {
+        RCLCPP_INFO(this->get_logger(), "Obstacle cleared. Resuming normal gap following speed.");
+    }
+
+    return current_state;
+}
+
 
 
 
