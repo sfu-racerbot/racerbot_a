@@ -54,12 +54,6 @@ def generate_launch_description():
         description="Scale factor for the safety bubble size",
     )
 
-    prev_angle_adjuster_arg = DeclareLaunchArgument(
-        "prev_angle_adjuster",
-        default_value="0.6",
-        description="Weight applied to previous steering angle for smoothing",
-    )
-
     bubble_lookahead_arg = DeclareLaunchArgument(
         "bubble_lookahead",
         default_value="3.0",
@@ -202,7 +196,6 @@ def generate_launch_description():
                     {"car_width": LaunchConfiguration("car_width")},
                     {"minimum_gap_threshold": LaunchConfiguration("minimum_gap_threshold")},
                     {"safety_bubble_scale": LaunchConfiguration("safety_bubble_scale")},
-                    {"prev_angle_adjuster": LaunchConfiguration("prev_angle_adjuster")},
                     {"bubble_lookahead": LaunchConfiguration("bubble_lookahead")},
                     {"bubble_half_width": LaunchConfiguration("bubble_half_width")},
                     {"wheelbase": LaunchConfiguration("wheelbase")},

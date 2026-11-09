@@ -16,7 +16,6 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     this->declare_parameter("minimum_gap_threshold", 1.0);
     this->declare_parameter("enable_safety", true);
     this->declare_parameter("safety_bubble_scale", 0.5);
-    this->declare_parameter("prev_angle_adjuster", 0.6);
     this->declare_parameter("bubble_lookahead", 3.0);
     this->declare_parameter("bubble_half_width", 0.45);
     this->declare_parameter("wheelbase", 0.33);
@@ -41,7 +40,6 @@ FollowTheGapNode::FollowTheGapNode() : Node("follow_the_gap_node") {
     minimum_gap_threshold_ = this->get_parameter("minimum_gap_threshold").as_double();
     enable_safety_ = this->get_parameter("enable_safety").as_bool();
     safety_bubble_scale_ = this->get_parameter("safety_bubble_scale").as_double();
-    prev_angle_adjuster_ = this->get_parameter("prev_angle_adjuster").as_double();
     bubble_lookahead_ = this->get_parameter("bubble_lookahead").as_double();
     bubble_half_width_ = this->get_parameter("bubble_half_width").as_double();
     wheelbase_ = this->get_parameter("wheelbase").as_double();
@@ -277,10 +275,9 @@ void FollowTheGapNode::lidar_callback(const sensor_msgs::msg::LaserScan::ConstSh
         target_angle = -1.0f * steering_angle_max_;
       }
     }
-
-    // Smooth with previous steering_angle
-    float steering_angle = prev_angle_ * prev_angle_adjuster_ + target_angle * (1 - prev_angle_adjuster_);
-    prev_angle_ = steering_angle;
+   
+    //Set steering angle to target angle
+    double steering_angle = target_angle;
 
     // Deadzone: zero out small steering angles to prevent wobble on straights
     if (std::abs(steering_angle) < steering_deadzone_) {

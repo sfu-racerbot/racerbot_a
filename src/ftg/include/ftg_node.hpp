@@ -29,7 +29,6 @@ private:
     bool enable_safety_;
     bool safety_brake_engaged_;
     double safety_bubble_scale_;
-    double prev_angle_adjuster_;  // scale weight of prev angle when smoothing
     double prev_angle_;
     double bubble_lookahead_;     // how far ahead an obj can be and get a bubble
     double bubble_half_width_;    // how far either side of the car's centreline a obj can be and get bubble
