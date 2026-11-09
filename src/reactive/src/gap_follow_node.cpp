@@ -130,7 +130,7 @@ void GapFollowNode::least_squares_pathfinding(const reactive::msg::Gap::ConstSha
     double dt = (last_callback_time_ > 0.0) ? (now_sec - last_callback_time_) : 0.02;
     last_callback_time_ = now_sec;
 
-    filtered_steering_angle_ = hysteresis_alpha_ * steering_angle + (1 - hysteresis_alpha_) * filtered_steering_angle_;
+    filtered_steering_angle_ = alpha * steering_angle + (1 - alpha) * filtered_steering_angle_;
 
     double max_delta = max_slew_rate_ * dt; // new param, rad/sec
     double delta = std::clamp(filtered_steering_angle_ - commanded_steering_angle_, -max_delta, max_delta);
