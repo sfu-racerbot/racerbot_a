@@ -165,7 +165,6 @@ def generate_launch_description():
             car_width_arg,
             minimum_gap_threshold_arg,
             safety_bubble_scale_arg,
-            prev_angle_adjuster_arg,
             bubble_lookahead_arg,
             bubble_half_width_arg,
             wheelbase_arg,
