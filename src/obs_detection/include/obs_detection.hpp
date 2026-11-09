@@ -33,7 +33,7 @@ public:
 private:
     void lidar_callback(ConstScanMessagePtr scan_msg);
     std::vector<float> preprocess_lidar(ConstScanMessagePtr scan_msg);
-    geometry_msgs::msg::Vector3Stamped::ConstSharedPtr detectObstacleAhead(ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges, double target_angle);
+    std_msgs::msg::Bool detectObstacleAhead(ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges, double target_angle);
 
     std::optional<Candidate> find_closest_candidate(ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges);
     std::optional<Edges> find_obstacle_edges(ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges, Candidate candidate);
@@ -43,7 +43,7 @@ private:
     double angle_at(int i, ConstScanMessagePtr scan_msg);
     
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
-    rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr obstacle_pub_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr obstacle_pub_;
     
     // member variables for thresholds 
     double obstacle_distance_;
