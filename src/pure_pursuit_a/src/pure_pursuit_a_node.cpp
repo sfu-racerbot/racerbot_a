@@ -182,6 +182,7 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
 
     int obs_fallback_publisher_count = this->obs_fallback_sub_->get_publisher_count();
     if (obs_fallback_publisher_count > 0 && obs_fallback_engaged_) {
+        stop();
         return;
     }
 

@@ -26,7 +26,7 @@ def generate_launch_description():
 
     track_arg = DeclareLaunchArgument(
         "track",
-        default_value="levine",
+        default_value="levine2",
         description="Name of the waypoint CSV (without .csv) in the waypoints folder",
     )
 
