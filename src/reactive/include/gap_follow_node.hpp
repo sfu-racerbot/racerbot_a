@@ -32,6 +32,7 @@ private:
     double hysteresis_alpha_ = 0.3;
     double speed_curve_scale_ = 1.0;
     double max_slew_rate_ = 0.1;
+    double hard_turn_threshold_ = DEG2RAD(75.0);
 
     double filtered_steering_angle_ = 0.0;
     double commanded_steering_angle_ = 0.0;

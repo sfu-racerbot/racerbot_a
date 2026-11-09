@@ -41,7 +41,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     hysteresis_alpha_ = this->get_parameter("hysteresis_alpha").as_double();
     speed_curve_scale_ = this->get_parameter("speed_curve_scale").as_double();
     max_slew_rate_ = DEG2RAD(this->get_parameter("max_slew_rate").as_double());
-    hard_turnthreshold = DEG2RAD(this->get_parameter("hard_turn_threshold_deg").as_double());
+    hard_turn_threshold_ = DEG2RAD(this->get_parameter("hard_turn_threshold_deg").as_double());
 }
 
 void GapFollowNode::gap_callback(const reactive::msg::Gap::ConstSharedPtr gap_msg)
@@ -119,18 +119,18 @@ void GapFollowNode::least_squares_pathfinding(const reactive::msg::Gap::ConstSha
 
     double steering_angle = compute_steering_angle(coefficients, x, max_lookahead);
 
-    const bool hard_turn = std::abs(steering_angle) > hard_turnthreshold;
+    const bool hard_turn = std::abs(steering_angle) > hard_turn_threshold_;
     if (hard_turn)
     {
-        steering_angle = std::copysign(max_steeringangle, steering_angle);
+        steering_angle = std::copysign(max_steering_angle_, steering_angle);
     }
-    const double alpha = hard_turn ? 1.0 : hysteresisalpha;
+    const double alpha = hard_turn ? 1.0 : hysteresis_alpha_;
 
     double now_sec = this->now().seconds();
     double dt = (last_callback_time_ > 0.0) ? (now_sec - last_callback_time_) : 0.02;
     last_callback_time_ = now_sec;
 
-    filtered_steering_angle_ = hysteresis_alpha_ * steering_angle + (1 - hysteresis_alpha_) * filtered_steering_angle_;
+    filtered_steering_angle_ = alpha * steering_angle + (1 - alpha) * filtered_steering_angle_;
 
     double max_delta = max_slew_rate_ * dt; // new param, rad/sec
     double delta = std::clamp(filtered_steering_angle_ - commanded_steering_angle_, -max_delta, max_delta);
