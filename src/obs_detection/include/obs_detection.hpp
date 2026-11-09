@@ -48,7 +48,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr obstacle_pub_;
     
     // member variables for thresholds 
-    double obstacle_distance_;
+    double max_obstacle_distance_;
     double obstacle_edge_jump_;
     double car_width_extended_;
     double obstacle_max_width_ = 0.8;
@@ -56,7 +56,6 @@ private:
     int obstacle_hold_counter_ = 0;
 
     //member variables for LiDAR processing
-    double max_lidar_range_;
     double fov_half_angle_;
     double obstacle_min_target_angle_;
     

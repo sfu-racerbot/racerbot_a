@@ -5,19 +5,17 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
     RCLCPP_INFO(this->get_logger(), "Obs_detection node started");
 
     // declare node parameters 
-    this->declare_parameter("obstacle_distance", 2.0);
+    this->declare_parameter("max_obstacle_distance", 2.0);
     this->declare_parameter("obstacle_edge_jump", 0.5);
     this->declare_parameter("car_width_extended", 0.55);
-    this->declare_parameter("max_lidar_range", 2.0);
     this->declare_parameter("fov_half_angle_deg", 135.0);
     this->declare_parameter("obstacle_min_target_angle_deg", 0.0);
     this->declare_parameter("obstacle_max_width", 0.8);
     this->declare_parameter("obstacle_hold_frames", 8);
 
-    obstacle_distance_ = this->get_parameter("obstacle_distance").as_double();
+    max_obstacle_distance_ = this->get_parameter("max_obstacle_distance").as_double();
     obstacle_edge_jump_ = this->get_parameter("obstacle_edge_jump").as_double();
     car_width_extended_ = this->get_parameter("car_width_extended").as_double();
-    max_lidar_range_ = this->get_parameter("max_lidar_range").as_double();
     obstacle_max_width_ = this->get_parameter("obstacle_max_width").as_double();
     fov_half_angle_ = this->get_parameter("fov_half_angle_deg").as_double() * M_PI / 180.0;
     obstacle_min_target_angle_ = this->get_parameter("obstacle_min_target_angle_deg").as_double() * M_PI / 180.0;
@@ -33,7 +31,7 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
 
 float ObsDetectionNode::range_at(int i, const std::vector<float>& processed_ranges){
     const float r = processed_ranges[i];
-    return (std::isfinite(r) && r > 0.05f) ? r : static_cast<float>(max_lidar_range_);
+    return (std::isfinite(r) && r > 0.05f) ? r : static_cast<float>(max_obstacle_distance_);
 };
 
 double ObsDetectionNode::angle_at(int i, ConstScanMessagePtr scan_msg){
@@ -49,9 +47,9 @@ std::vector<float> ObsDetectionNode::preprocess_lidar(ConstScanMessagePtr scan_m
     for(size_t i = 0; i < ranges.size(); i++){
         float range = ranges[i];
         if(!std::isfinite(range)){
-            range = (std::isnan(range) || range < 0) ? 0.0f : max_lidar_range_;
+            range = (std::isnan(range) || range < 0) ? 0.0f : max_obstacle_distance_;
         }
-        ranges[i] = std::clamp(range, 0.0f, static_cast<float>(max_lidar_range_));
+        ranges[i] = std::clamp(range, 0.0f, static_cast<float>(max_obstacle_distance_));
     }
     return ranges;
 }
