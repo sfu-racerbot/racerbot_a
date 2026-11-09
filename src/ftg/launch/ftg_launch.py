@@ -14,13 +14,13 @@ def generate_launch_description():
 
     max_speed_arg = DeclareLaunchArgument(
         "max_speed",
-        default_value="4.5",
+        default_value="5.0",
         description="Maximum forward speed allowed in meters per second",
     )
 
     min_speed_arg = DeclareLaunchArgument(
         "min_speed",
-        default_value="0.6",
+        default_value="0.4",
         description="Minimum forward speed allowed in meters per second",
     )
 
@@ -50,14 +50,8 @@ def generate_launch_description():
 
     safety_bubble_scale_arg = DeclareLaunchArgument(
         "safety_bubble_scale",
-        default_value="0.65",
+        default_value="0.7",
         description="Scale factor for the safety bubble size",
-    )
-
-    prev_angle_adjuster_arg = DeclareLaunchArgument(
-        "prev_angle_adjuster",
-        default_value="0.6",
-        description="Weight applied to previous steering angle for smoothing",
     )
 
     bubble_lookahead_arg = DeclareLaunchArgument(
@@ -86,7 +80,7 @@ def generate_launch_description():
 
     steering_deadzone_arg = DeclareLaunchArgument(
         "steering_deadzone",
-        default_value="2.0",
+        default_value="1.5",
         description="Deadzone angle in degrees below which steering is zeroed out",
     )
 
@@ -104,31 +98,25 @@ def generate_launch_description():
 
     slow_range_arg = DeclareLaunchArgument(
         "slow_range",
-        default_value="1.0",
+        default_value="0.75",
         description="Range under which to minimize speed."
     )
 
     fast_range_arg = DeclareLaunchArgument(
         "fast_range",
-        default_value="2.25",
+        default_value="2.7",
         description="Range at and above which to try and maximize speed."
     )
 
     slow_speed_arg = DeclareLaunchArgument(
         "slow_speed",
-        default_value="2.0",
-        description="Speed to slow to at and under slow_range. Further minimized by turning, not minimum overall speed."
-    )
-
-    low_angle_tolerance_arg = DeclareLaunchArgument(
-        "low_angle_tolerance",
         default_value="2.5",
-        description="Multilpe of degrees from the deadzone within which to maintain higher speeds"
+        description="Speed to slow to at and under slow_range. Further minimized by turning, not minimum overall speed."
     )
 
     full_bubble_threshold_arg = DeclareLaunchArgument(
         "full_bubble_threshold",
-        default_value="0.25",
+        default_value="0.15",
         description="Distance into bubble box needed for full bubble aplication."
     )
 
@@ -171,7 +159,6 @@ def generate_launch_description():
             car_width_arg,
             minimum_gap_threshold_arg,
             safety_bubble_scale_arg,
-            prev_angle_adjuster_arg,
             bubble_lookahead_arg,
             bubble_half_width_arg,
             wheelbase_arg,
@@ -185,7 +172,6 @@ def generate_launch_description():
             slow_range_arg,
             fast_range_arg,
             slow_speed_arg,
-            low_angle_tolerance_arg,
             full_bubble_threshold_arg,
             # Launch follow the gap
             Node(
@@ -202,7 +188,6 @@ def generate_launch_description():
                     {"car_width": LaunchConfiguration("car_width")},
                     {"minimum_gap_threshold": LaunchConfiguration("minimum_gap_threshold")},
                     {"safety_bubble_scale": LaunchConfiguration("safety_bubble_scale")},
-                    {"prev_angle_adjuster": LaunchConfiguration("prev_angle_adjuster")},
                     {"bubble_lookahead": LaunchConfiguration("bubble_lookahead")},
                     {"bubble_half_width": LaunchConfiguration("bubble_half_width")},
                     {"wheelbase": LaunchConfiguration("wheelbase")},
@@ -216,7 +201,6 @@ def generate_launch_description():
                     {"slow_range": LaunchConfiguration("slow_range")},
                     {"fast_range": LaunchConfiguration("fast_range")},
                     {"slow_speed": LaunchConfiguration("slow_speed")},
-                    {"low_angle_tolerance": LaunchConfiguration("low_angle_tolerance")},
                     {"full_bubble_threshold": LaunchConfiguration("full_bubble_threshold")},
                 ],
                 remappings=[("/drive", drive_topic), ("/scan", scan_topic)],
