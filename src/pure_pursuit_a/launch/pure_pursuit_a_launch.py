@@ -9,7 +9,7 @@ def generate_launch_description():
     odom_topic_arg = DeclareLaunchArgument(
         "odom_topic",
         default_value="/odom",
-        description="Odometry topic (pose source in sim, wheel odom for speed when use_pf is true)",
+        description="Odometry topic: pose + speed when use_pf is false, speed only when true (pose comes from /pf/pose/odom)",
     )
 
     use_pf_arg = DeclareLaunchArgument(
@@ -68,7 +68,7 @@ def generate_launch_description():
 
     max_speed_arg = DeclareLaunchArgument(
         "max_speed",
-        default_value="4.0",
+        default_value="5.5",
         description="Maximum forward speed in m/s",
     )
 

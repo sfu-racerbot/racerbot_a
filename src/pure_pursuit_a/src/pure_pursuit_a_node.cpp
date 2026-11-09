@@ -23,7 +23,7 @@ PurePursuit::PurePursuit() : Node("pure_pursuit_a_node")
     this->declare_parameter("lookahead_speed_gain", 0.1);
     this->declare_parameter("wheelbase", 0.33);
     this->declare_parameter("max_steering", 0.4189);  // about 24 deg
-    this->declare_parameter("max_speed", 4.0);
+    this->declare_parameter("max_speed", 5.5);
     this->declare_parameter("min_speed", 1.5);
 
     odom_topic_ = this->get_parameter("odom_topic").as_string();
@@ -93,6 +93,16 @@ void PurePursuit::obs_fallback_callback(const std_msgs::msg::Bool::ConstSharedPt
 void PurePursuit::speed_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
 {
     current_speed_ = msg->twist.twist.linear.x;
+}
+
+void PurePursuit::stop()
+{
+    ackermann_msgs::msg::AckermannDriveStamped drive;
+    drive.header.stamp = now();
+    drive.header.frame_id = "base_link";
+    drive.drive.steering_angle = 0.0;
+    drive.drive.speed = 0.0;
+    drive_pub_->publish(drive);
 }
 
 void PurePursuit::load_waypoints(const std::string& path)
@@ -166,10 +176,7 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
 
     int safety_publisher_count = this->safety_brake_sub_->get_publisher_count();
     if (enable_safety_ && (safety_brake_engaged_ || safety_publisher_count == 0)) {
-        ackermann_msgs::msg::AckermannDriveStamped drive_msg;
-        drive_msg.header.stamp = this->now();
-        drive_msg.drive.speed = 0.0;
-        drive_pub_->publish(drive_msg);
+        stop();
         return;
     }
 
@@ -190,8 +197,18 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
     const double speed = use_pf_ ? current_speed_ : msg->twist.twist.linear.x;
     const double L = currentLookahead(speed);
 
-    // First odom msg finds the closest waypoint to give the last_goal_index_ to start finding the waypoint from
-    if (!initialized_) { // TODO: Handle when to reset
+    // Re-localize if the car is far from the last goal (respawn, PF jump, pushed off course)
+    if (initialized_) {
+        const double gdx = waypoints_[last_goal_index_].x - car_x;
+        const double gdy = waypoints_[last_goal_index_].y - car_y;
+        // relocalize if the car is more than 2 * lookahead_max_ from the last goal waypoint
+        if (std::hypot(gdx, gdy) > 2.0 * lookahead_max_) {
+            initialized_ = false;
+        }
+    }
+
+    // Find the closest waypoint to start the forward search from
+    if (!initialized_) {
         double best_dist = std::numeric_limits<double>::infinity();
         for (size_t i = 0; i < waypoints_.size(); i++) {
             double dx = waypoints_[i].x - car_x;
@@ -231,7 +248,9 @@ void PurePursuit::odom_callback(nav_msgs::msg::Odometry::ConstSharedPtr msg)
     }
 
     RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 2000, "No suitable forward waypoint found"); // TODO: Handle failure
+        get_logger(), *get_clock(), 2000, "No suitable forward waypoint found, stopping");
+    stop();
+    initialized_ = false; // re-localize on the next message
 }
 
 int main(int argc, char **argv)
