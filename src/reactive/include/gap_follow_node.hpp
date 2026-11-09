@@ -9,6 +9,7 @@
 #include <limits>
 
 #define DEG2RAD(x) x *(M_PI / 180.0)
+#define RAD2DEG(x) x * (180.0 / M_PI)
 
 class GapFollowNode : public rclcpp::Node
 {

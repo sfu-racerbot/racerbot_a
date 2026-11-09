@@ -202,12 +202,11 @@ double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, doubl
 
 double GapFollowNode::angle_to_speed_function(double angle)
 {
+    const double a = -2.8;
+    const double b = 1.2;
+    const double c = 10.3;
 
-    const double a = -4.1;
-    const double b = 1.0;
-    const double c = 3.6;
-
-    double y = speed_curve_scale_ * (a * std::log(std::abs(angle) + b) + c); // current formula from Desmos tinkering <https://www.desmos.com/calculator/yeyvbi21nf>
+    double y = speed_curve_scale_ * (a * std::log(std::abs(RAD2DEG(angle)) + b) + c); // current formula from Desmos tinkering <https://www.desmos.com/calculator/yeyvbi21nf>
     return std::clamp(y, min_speed_, max_speed_);
 }
 
@@ -236,9 +235,10 @@ double GapFollowNode::get_combined_speed(double angle, double range)
 
     double range_speed = range_to_speed_function(effective_range);
 
+    RCLCPP_INFO(this->get_logger(), "angle_speed = %.2f, range_speed = %.2f, using '%s'", angle_speed, range_speed, angle_speed < range_speed ? "angle" : "range");
+
     double final_speed = std::min(angle_speed, range_speed);
     last_speed_ = final_speed; // Store for the next iteration
-
     return final_speed;
 }
 
