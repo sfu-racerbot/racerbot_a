@@ -21,6 +21,11 @@ DisparityExtenderNode::DisparityExtenderNode() : Node("disparity_extender_node")
     this->declare_parameter("max_lateral_acc", 3.5);
     this->declare_parameter("enable_safety", true);
 
+    // Launch
+    this->declare_parameter("enable_launch", false);
+    this->declare_parameter("launch_duration", 2.5); 
+    this->declare_parameter("launch_speed", 7.0);
+
     // Read into member variables
     enable_stop_ = this->get_parameter("enable_stop").as_bool();
     max_steering_angle_ = this->get_parameter("max_steering_angle").as_double();
@@ -36,6 +41,13 @@ DisparityExtenderNode::DisparityExtenderNode() : Node("disparity_extender_node")
     wheelbase_ = this->get_parameter("wheelbase").as_double();
     max_lateral_acc_ = this->get_parameter("max_lateral_acc").as_double();
     enable_safety_ = this->get_parameter("enable_safety").as_bool();
+
+    // Launch Control 
+    enable_launch_ = this->get_parameter("enable_launch").as_bool();
+    launch_duration_ = std::chrono::duration<double>(this->get_parameter("launch_duration").as_double());
+    launch_speed_ = this->get_parameter("launch_speed").as_double();
+    launch_deadline_.reset();
+
 
     drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
 
@@ -258,6 +270,23 @@ void DisparityExtenderNode::drive_best_point(const float range, const float stee
 
     float velocity = std::min({static_cast<float>(max_speed_), v_turn, v_range});
     velocity = std::clamp(velocity, static_cast<float>(min_speed_), static_cast<float>(max_speed_));
+
+    // If the car is currently launching and launch boost is enabled then hard set the speed to launch_speed_
+    if(enable_launch_) {
+        auto now = std::chrono::steady_clock::now();
+        // If this is the first lidar scan get the current time and set a launch deadline that is launch duration seconds from now
+        if(!(launch_deadline_.has_value())){
+            launch_deadline_ = now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(launch_duration_);
+        }
+        // Hard set speed equal to the launch_speed_ parameter
+        velocity = launch_speed_;
+        // If the launch is over disable this entire block
+        if(now>=*launch_deadline_){
+            RCLCPP_INFO(this->get_logger(), "Launch Completed");
+            enable_launch_ = false;
+        }
+    }
+
 
     ackermann_msgs::msg::AckermannDriveStamped drive_msg;
     drive_msg.header.stamp = this->now();
