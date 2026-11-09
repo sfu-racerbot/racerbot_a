@@ -16,7 +16,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
 
     this->declare_parameter("use_fallback_method", false);
     this->declare_parameter("degree", 2);
-    this->declare_parameter("steering_gain", 1.0);
+    this->declare_parameter("steering_gain", 2.0);
     this->declare_parameter("k_samples", 200);
     this->declare_parameter("max_steering_angle", 20.0);
     this->declare_parameter("max_speed", 4.0);
@@ -25,7 +25,7 @@ GapFollowNode::GapFollowNode() : Node("gap_follow_node")
     this->declare_parameter("speed_curve_scale", 1.0);
     this->declare_parameter("max_slew_rate", 100.0);
     this->declare_parameter("enable_safety", true);
-    this->declare_parameter("hard_turn_threshold_deg", 75.0);
+    this->declare_parameter("hard_turn_threshold_deg", 16.0);
 
     use_fallback_method_ = this->get_parameter("use_fallback_method").as_bool();
     RCLCPP_INFO(this->get_logger(), "Using follow method: '%s'", use_fallback_method_ ? "drive_best_point" : "least_squares");
@@ -117,7 +117,7 @@ void GapFollowNode::least_squares_pathfinding(const reactive::msg::Gap::ConstSha
     // Determine polynomial coefficients
     Eigen::VectorXd coefficients = fit_polynomial(x, y);
 
-    double steering_angle = compute_steering_angle(coefficients, x, max_lookahead);
+    double steering_angle = compute_steering_angle(coefficients, max_lookahead);
 
     const bool hard_turn = std::abs(steering_angle) > hard_turn_threshold_;
     if (hard_turn)
@@ -182,41 +182,31 @@ double GapFollowNode::get_curve_output(double x, Eigen::VectorXd coefficients)
     return y;
 }
 
-double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, Eigen::VectorXd x_coords, double max_lookahead)
+double GapFollowNode::compute_steering_angle(Eigen::VectorXd coefficients, double max_lookahead)
 {
-    double x_min = x_coords.minCoeff();
-    double x_max = x_coords.maxCoeff();
+    // speed-dependent lookahead, tunable
+    const double ld_min = 1.0, ld_max = 4.0, k_ld = 0.5;
+    double ld = std::clamp(ld_min + k_ld * last_speed_, ld_min, ld_max);
+    ld = std::min(ld, max_lookahead);
 
-    double best_x = x_min;
-    double best_y = 0.0;
+    double x = ld;
+    double y = get_curve_output(x, coefficients);
 
-    for (int i = 0; i <= k_samples_; i++)
-    {
-        double x = x_min + (x_max - x_min) * i / k_samples_;
-        if (x > max_lookahead)
-        {
-            continue;
-        }
+    // pure pursuit: curvature = 2y / L²
+    const double wheelbase = 0.3302;
+    double L2 = x * x + y * y;
+    double delta = std::atan2(2.0 * wheelbase * y, L2);
 
-        double y = get_curve_output(x, coefficients);
-
-        if (x > best_x)
-        {
-            best_x = x;
-            best_y = y;
-        }
-    }
-    return std::atan2(best_y, best_x);
+    return steering_gain_ * delta;
 }
 
 double GapFollowNode::angle_to_speed_function(double angle)
 {
+    const double a = -2.8;
+    const double b = 1.2;
+    const double c = 10.3;
 
-    const double a = -4.1;
-    const double b = 1.0;
-    const double c = 3.6;
-
-    double y = speed_curve_scale_ * (a * std::log(std::abs(angle) + b) + c); // current formula from Desmos tinkering <https://www.desmos.com/calculator/yeyvbi21nf>
+    double y = speed_curve_scale_ * (a * std::log(std::abs(RAD2DEG(angle)) + b) + c); // current formula from Desmos tinkering <https://www.desmos.com/calculator/yeyvbi21nf>
     return std::clamp(y, min_speed_, max_speed_);
 }
 
@@ -228,8 +218,8 @@ double GapFollowNode::range_to_speed_function(double range)
     range = std::clamp(range, min_range, max_range);
 
     const double a = 2.5;
-    const double b = -0.3;
-    const double c = 2.3;
+    const double b = 0.5;
+    const double c = 4.0;
 
     double y = speed_curve_scale_ * (a * std::log(range + b) + c);
     return std::clamp(y, min_speed_, max_speed_);
@@ -237,19 +227,16 @@ double GapFollowNode::range_to_speed_function(double range)
 
 double GapFollowNode::get_combined_speed(double angle, double range)
 {
-    static double last_speed = 0.0; // Proxy for current vehicle velocity
-
     double angle_speed = angle_to_speed_function(angle);
 
     // Braking penalty: Shrink the perceived safe range if moving quickly
-    double lookahead_penalty = 0.6 * last_speed;
+    double lookahead_penalty = 0.6 * last_speed_;
     double effective_range = std::max(0.0, range - lookahead_penalty);
 
     double range_speed = range_to_speed_function(effective_range);
 
     double final_speed = std::min(angle_speed, range_speed);
-    last_speed = final_speed; // Store for the next iteration
-
+    last_speed_ = final_speed; // Store for the next iteration
     return final_speed;
 }
 

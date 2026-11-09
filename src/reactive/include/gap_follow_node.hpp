@@ -9,6 +9,7 @@
 #include <limits>
 
 #define DEG2RAD(x) x *(M_PI / 180.0)
+#define RAD2DEG(x) x * (180.0 / M_PI)
 
 class GapFollowNode : public rclcpp::Node
 {
@@ -37,6 +38,7 @@ private:
     double filtered_steering_angle_ = 0.0;
     double commanded_steering_angle_ = 0.0;
     double last_callback_time_ = 0.0;
+    double last_speed_ = 0.0;
 
     bool safety_brake_engaged_ = false;
 
@@ -66,10 +68,9 @@ private:
 
     /// @brief Determine steering angle based on coefficients that were calculated
     /// @param coefficients Coefficients of the function, ordered from lowest degree to highest degree
-    /// @param x_coords Vector of forward (X) distances of the gap points
     /// @param max_lookahead The maximum lookahead distance that the value should be clamped too
     /// @returns The angle the car should steer
-    double compute_steering_angle(Eigen::VectorXd coefficients, Eigen::VectorXd x_coords, double max_lookahead);
+    double compute_steering_angle(Eigen::VectorXd coefficients, double max_lookahead);
 
     /// @brief The mathematical function that determines the car's speed based on the target_angle
     /// @param angle The target angle
