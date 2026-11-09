@@ -3,6 +3,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
+
 def generate_launch_description():
     
     max_obstacle_distance_arg = DeclareLaunchArgument(
@@ -47,6 +48,7 @@ def generate_launch_description():
         description="Number of frames to hold obstacle state for hysteresis.",
     )
 
+    # 1. Obstacle Detection Node
     obs_detection_node = Node(
         package="obs_detection",
         executable="obs_detection",
@@ -63,6 +65,7 @@ def generate_launch_description():
         }],
     )
 
+    # 2. Fallback Control Multiplexer Node
     fallback_ctrl_node = Node(
         package="obs_detection",
         executable="fallback_ctrl",
