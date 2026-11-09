@@ -25,7 +25,7 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
         "scan", 10,
         std::bind(&ObsDetectionNode::lidar_callback, this, std::placeholders::_1));
 
-    obstacle_pub_ = this->create_publisher<geometry_msgs::msg::Vector3Stamped>("obstacle_ahead", 10);
+    obstacle_pub_ = this->create_publisher<std_msgs::msg::Bool>("obstacle_ahead", 10);
 }
 
 
@@ -64,13 +64,20 @@ void ObsDetectionNode::lidar_callback(ConstScanMessagePtr scan_msg)
     // TODO for Hendrick: Implement logic prior to calling detectObstacleAhead, and publish the return of detectObstacleAhead to the obstacle_ahead topic
     // Look at gap_finder_node.cpp/.hpp to get a better idea
 
+
+    float target_angle_temp = 0.0; //this is a temp variable to hold target_angle
+
+    auto message = detectObstacleAhead(scan_msg, processed_ranges, target_angle_temp);
+
+    obstacle_pub_->publish(message);
+
+
 }
 
-geometry_msgs::msg::Vector3Stamped::ConstSharedPtr ObsDetectionNode::detectObstacleAhead(ConstScanMessagePtr scan_msg, 
+std_msgs::msg::Bool ObsDetectionNode::detectObstacleAhead(ConstScanMessagePtr scan_msg, 
 const std::vector<float>& processed_ranges, double target_angle){
-    auto msg = std::make_shared<geometry_msgs::msg::Vector3Stamped>();
-    msg->header.stamp = this->now();
-    msg->header.frame_id = "laser";
+    std_msgs::msg::Bool msg;
+    msg.data = false;
 
     // first find our candidate (chooses the laser with closest point in our lane currently)
     auto candidate = find_closest_candidate(scan_msg, processed_ranges);
@@ -94,9 +101,9 @@ const std::vector<float>& processed_ranges, double target_angle){
        return msg;
     };
     
-    msg->vector.x = candidate->range*std::cos(candidate->angle);
-    msg->vector.y = candidate->range*std::sin(candidate->angle);
-    msg->vector.z = 0;
+   
+    msg.data = true;
+
     return msg;
 }
 
