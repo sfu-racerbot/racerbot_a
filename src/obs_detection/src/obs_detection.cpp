@@ -5,7 +5,7 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
     RCLCPP_INFO(this->get_logger(), "Obs_detection node started");
 
     // declare node parameters 
-    this->declare_parameter("max_obstacle_distance", 10);
+    this->declare_parameter("max_obstacle_distance", 10.0);
     this->declare_parameter("obstacle_edge_jump", 0.5);
     this->declare_parameter("car_width_extended", 0.55);
     this->declare_parameter("fov_half_angle_deg", 135.0);
