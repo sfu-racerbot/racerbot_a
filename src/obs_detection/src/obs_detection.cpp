@@ -1,4 +1,4 @@
-  #include "../include/obs_detection.hpp"
+#include "../include/obs_detection.hpp"
 
 ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
 {
@@ -58,25 +58,26 @@ ObsDetectionNode::ObsDetectionNode() : Node("obs_detection_node")
     drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("drive", 10);
 }
 
-
-float ObsDetectionNode::range_at(int i, const std::vector<float>& processed_ranges){
+float ObsDetectionNode::range_at(int i, const std::vector<float> &processed_ranges)
+{
     const float r = processed_ranges[i];
     return (std::isfinite(r) && r > 0.05f) ? r : static_cast<float>(max_obstacle_distance_);
 };
 
-double ObsDetectionNode::angle_at(int i, ConstScanMessagePtr scan_msg){
+double ObsDetectionNode::angle_at(int i, ConstScanMessagePtr scan_msg)
+{
     return scan_msg->angle_min + scan_msg->angle_increment * i;
 };
-
-
 
 std::vector<float> ObsDetectionNode::preprocess_lidar(ConstScanMessagePtr scan_msg)
 {
     auto ranges = scan_msg->ranges;
 
-    for(size_t i = 0; i < ranges.size(); i++){
+    for (size_t i = 0; i < ranges.size(); i++)
+    {
         float range = ranges[i];
-        if(!std::isfinite(range)){
+        if (!std::isfinite(range))
+        {
             range = (std::isnan(range) || range < 0) ? 0.0f : max_obstacle_distance_;
         }
         ranges[i] = std::clamp(range, 0.0f, static_cast<float>(max_obstacle_distance_));
@@ -86,7 +87,7 @@ std::vector<float> ObsDetectionNode::preprocess_lidar(ConstScanMessagePtr scan_m
 
 void ObsDetectionNode::lidar_callback(ConstScanMessagePtr scan_msg)
 {
-    if(scan_msg->ranges.empty())
+    if (scan_msg->ranges.empty())
         return;
 
     std::vector<float> processed_ranges = preprocess_lidar(scan_msg);
@@ -109,89 +110,91 @@ void ObsDetectionNode::lidar_callback(ConstScanMessagePtr scan_msg)
 }
 
 std_msgs::msg::Bool ObsDetectionNode::detectObstacleAhead(ConstScanMessagePtr scan_msg,
-const std::vector<float>& processed_ranges){
+                                                          const std::vector<float> &processed_ranges)
+{
     std_msgs::msg::Bool msg;
     msg.data = false;
 
     // first find our candidate (chooses the laser with closest point in our lane currently)
     auto candidate = find_closest_candidate(scan_msg, processed_ranges);
 
-    if (!candidate){
-        msg.data = update_obstacle_state(false);
+    if (!candidate)
+    {
+        msg.data = update_obstacle_state(false, *candidate);
         return msg;
     }
-    /* 
-        see if the candidate has left and right edges (the jumps "(a, b)" 
-        in distance for a reading such as say 8 7 (9 2) 2 (2 9) 9 8 
+    /*
+        see if the candidate has left and right edges (the jumps "(a, b)"
+        in distance for a reading such as say 8 7 (9 2) 2 (2 9) 9 8
         should indicate some form of shape which means higher likely hood of there being an obstacle)
     */
 
     auto edges = find_obstacle_edges(scan_msg, processed_ranges, *candidate);
 
-    if (!edges){
-        msg.data = update_obstacle_state(false);
+    if (!edges)
+    {
+        msg.data = update_obstacle_state(false, *candidate);
         return msg;
     }
 
-    
-    if(!is_obstacle(scan_msg, processed_ranges, *edges)){
-        msg.data = update_obstacle_state(false);
+    if (!is_obstacle(scan_msg, processed_ranges, *edges))
+    {
+        msg.data = update_obstacle_state(false, *candidate);
         return msg;
     };
 
-    
-    update_obstacle_state(true);
-   
+    update_obstacle_state(true, *candidate);
+
     msg.data = true;
 
     return msg;
 }
 
+std::optional<Candidate> ObsDetectionNode::find_closest_candidate(
+    ConstScanMessagePtr scan_msg, const std::vector<float> &processed_ranges)
+{
+    const float scan_limit = std::min(fov_half_angle_, M_PI / 2.0);
+    int closest = -1;
+    float forward_min = std::numeric_limits<float>::max();
 
- std::optional<Candidate> ObsDetectionNode::find_closest_candidate(
-    ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges){
-        const float scan_limit = std::min(fov_half_angle_, M_PI / 2.0);
-        int closest = -1;
-        float forward_min = std::numeric_limits<float>::max();
-        
-        auto within_lane = [&](int i, float forward_min) -> bool
+    auto within_lane = [&](int i, float forward_min) -> bool
+    {
+        const float r = range_at(i, processed_ranges);
+        const float angle = angle_at(i, scan_msg);
+        if (
+            std::abs(angle) < scan_limit &&
+            std::abs(r * std::sin(angle)) <= (car_width_extended_ / 2.0) && r < forward_min)
         {
-            const float r = range_at(i, processed_ranges);
-            const float angle = angle_at(i, scan_msg);
-            if (
-                std::abs(angle) < scan_limit &&
-                std::abs(r * std::sin(angle)) <= (car_width_extended_ / 2.0)
-                && r < forward_min
-            ){
-                return true;
-            }
-            return false;
-        };
-
-        
-        // candidate searching loop
-        for(size_t i = 0; i < processed_ranges.size(); i++){
-            if(within_lane(i, forward_min)){
-                forward_min = range_at(i, processed_ranges);
-                closest = i;
-            }
+            return true;
         }
-        if(closest == -1 || forward_min == std::numeric_limits<float>::max()){
-            return std::nullopt;
+        return false;
+    };
+
+    // candidate searching loop
+    for (size_t i = 0; i < processed_ranges.size(); i++)
+    {
+        if (within_lane(i, forward_min))
+        {
+            forward_min = range_at(i, processed_ranges);
+            closest = i;
         }
-        Candidate candidate{closest, range_at(closest, processed_ranges), angle_at(closest, scan_msg)};
-        return candidate;
- }
+    }
+    if (closest == -1 || forward_min == std::numeric_limits<float>::max())
+    {
+        return std::nullopt;
+    }
+    Candidate candidate{closest, range_at(closest, processed_ranges), angle_at(closest, scan_msg)};
+    return candidate;
+}
 
-
-std::optional<Edges>  ObsDetectionNode::find_obstacle_edges(ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges, Candidate candidate){
+std::optional<Edges> ObsDetectionNode::find_obstacle_edges(ConstScanMessagePtr scan_msg, const std::vector<float> &processed_ranges, Candidate candidate)
+{
     const int confirm_beams = 3;
     const int n = processed_ranges.size();
     const double scan_limit = std::min(fov_half_angle_, M_PI / 2.0);
 
     auto jump_is_persistent = [&](int i, int next, int dir) -> bool
     {
-       
         for (int k = 0; k < confirm_beams; ++k)
         {
             if (next < 0 || next >= n || std::abs(angle_at(next, scan_msg)) >= scan_limit)
@@ -207,7 +210,8 @@ std::optional<Edges>  ObsDetectionNode::find_obstacle_edges(ConstScanMessagePtr 
 
     auto in_scan_bounds = [&](int index) -> bool
     {
-        if(index < 0 || index >= static_cast<int>(processed_ranges.size())){
+        if (index < 0 || index >= static_cast<int>(processed_ranges.size()))
+        {
             return false;
         }
         return true;
@@ -217,10 +221,12 @@ std::optional<Edges>  ObsDetectionNode::find_obstacle_edges(ConstScanMessagePtr 
     {
         int dir = (direction == "right" ? -1 : 1);
 
-        for(int i = candidate.index; in_scan_bounds(i + dir); i+=dir){
+        for (int i = candidate.index; in_scan_bounds(i + dir); i += dir)
+        {
             const int next = i + dir;
-            if (range_at(next, processed_ranges) - range_at(i, processed_ranges) > obstacle_edge_jump_){
-                if(jump_is_persistent(i, next, dir))
+            if (range_at(next, processed_ranges) - range_at(i, processed_ranges) > obstacle_edge_jump_)
+            {
+                if (jump_is_persistent(i, next, dir))
                     return i;
             }
         }
@@ -229,14 +235,14 @@ std::optional<Edges>  ObsDetectionNode::find_obstacle_edges(ConstScanMessagePtr 
 
     int left = find_edge_to_the("left");
     int right = find_edge_to_the("right");
-    if(left < 0 || right < 0)
+    if (left < 0 || right < 0)
         return std::nullopt;
 
     return Edges{left, right};
-
 }
 
-bool ObsDetectionNode::is_obstacle(ConstScanMessagePtr scan_msg, const std::vector<float>& processed_ranges, Edges edges){
+bool ObsDetectionNode::is_obstacle(ConstScanMessagePtr scan_msg, const std::vector<float> &processed_ranges, Edges edges)
+{
     const double y_left = range_at(edges.left, processed_ranges) * std::sin(angle_at(edges.left, scan_msg));
     const double y_right = range_at(edges.right, processed_ranges) * std::sin(angle_at(edges.right, scan_msg));
     if (y_left - y_right > obstacle_max_width_)
@@ -244,17 +250,40 @@ bool ObsDetectionNode::is_obstacle(ConstScanMessagePtr scan_msg, const std::vect
     return true;
 }
 
-bool ObsDetectionNode::update_obstacle_state(bool detected)
+bool ObsDetectionNode::update_obstacle_state(bool detected, const Candidate &candidate)
 {
     bool prev_state = (obstacle_hold_counter_ > 0);
 
     if (detected)
     {
-        obstacle_hold_counter_ = obstacle_hold_frames_;
+
+        Vector3 current_obstacle_position = Vector3{candidate.range * std::cos(candidate.angle), candidate.range * std::sin(candidate.angle), 0.0};
+        if (last_obstacle_position_.has_value())
+        {
+            Vector3 delta = last_obstacle_position_.value() - current_obstacle_position;
+            if (std::abs(delta.x) < vector_difference_threshold && std::abs(delta.y) < vector_difference_threshold)
+            {
+                last_obstacle_position_ = current_obstacle_position;
+                obstacle_hold_counter_ = obstacle_hold_frames_;
+            }
+            else
+            {
+                last_obstacle_position_ = std::nullopt;
+            }
+        }
+        else
+        {
+            obstacle_hold_counter_ = obstacle_hold_frames_;
+            last_obstacle_position_ = current_obstacle_position;
+        }
     }
     else if (obstacle_hold_counter_ > 0)
     {
         --obstacle_hold_counter_;
+    }
+    else
+    {
+        last_obstacle_position_ = std::nullopt;
     }
 
     bool current_state = (obstacle_hold_counter_ > 0);
@@ -272,7 +301,6 @@ bool ObsDetectionNode::update_obstacle_state(bool detected)
     return current_state;
 }
 
-
 // Follow-the-gap fallback
 
 std::vector<float> ObsDetectionNode::ftg_preprocess(ConstScanMessagePtr scan_msg)
@@ -281,9 +309,11 @@ std::vector<float> ObsDetectionNode::ftg_preprocess(ConstScanMessagePtr scan_msg
     const int n = ranges.size();
 
     // invalid or too-close readings become 0, others capped at max_lidar_range_
-    auto clean = [&](int i) {
+    auto clean = [&](int i)
+    {
         float r = ranges[i];
-        if (!std::isfinite(r) || r < scan_msg->range_min) {
+        if (!std::isfinite(r) || r < scan_msg->range_min)
+        {
             return 0.0f;
         }
         return std::min(r, static_cast<float>(max_lidar_range_));
@@ -291,14 +321,16 @@ std::vector<float> ObsDetectionNode::ftg_preprocess(ConstScanMessagePtr scan_msg
 
     // first/last beams inside the FTG field of view
     const int first = std::max<int>(0,
-        std::ceil((-ftg_fov_half_angle_ - scan_msg->angle_min) / scan_msg->angle_increment));
+                                    std::ceil((-ftg_fov_half_angle_ - scan_msg->angle_min) / scan_msg->angle_increment));
     const int last = std::min<int>(n - 1,
-        std::floor((ftg_fov_half_angle_ - scan_msg->angle_min) / scan_msg->angle_increment));
+                                   std::floor((ftg_fov_half_angle_ - scan_msg->angle_min) / scan_msg->angle_increment));
 
     std::vector<float> processed(n, 0.0f);
 
-    for (int i = first; i <= last; i++) {
-        if (i == 0 || i == n - 1) {
+    for (int i = first; i <= last; i++)
+    {
+        if (i == 0 || i == n - 1)
+        {
             processed[i] = clean(i);
             continue;
         }
@@ -312,8 +344,10 @@ void ObsDetectionNode::ftg_draw_safety_bubble(ConstScanMessagePtr scan_msg, std:
 {
     bool found_closest = false;
     size_t closest_index = 0;
-    for (size_t i = 1; i < ranges.size(); ++i) {
-        if (ranges[i] == 0) {
+    for (size_t i = 1; i < ranges.size(); ++i)
+    {
+        if (ranges[i] == 0)
+        {
             continue;
         }
 
@@ -322,11 +356,13 @@ void ObsDetectionNode::ftg_draw_safety_bubble(ConstScanMessagePtr scan_msg, std:
         float ahead = ranges[i] * std::cos(angle);
         float beside = ranges[i] * std::sin(angle);
         if (ahead <= 0.0f || ahead > bubble_lookahead_ ||
-            std::abs(beside) > bubble_half_width_) {
+            std::abs(beside) > bubble_half_width_)
+        {
             continue;
         }
 
-        if (!found_closest || ranges[i] < ranges[closest_index]) {
+        if (!found_closest || ranges[i] < ranges[closest_index])
+        {
             found_closest = true;
             closest_index = i;
         }
@@ -345,14 +381,16 @@ void ObsDetectionNode::ftg_draw_safety_bubble(ConstScanMessagePtr scan_msg, std:
     double distance_adjustment = std::min(0.1 / ranges[closest_index], 1.0);
 
     double theta = 2.0 * std::atan2(car_width_ * safety_bubble_scale_ *
-        std::max(direction_adjustment, distance_adjustment), ranges[closest_index]);
+                                        std::max(direction_adjustment, distance_adjustment),
+                                    ranges[closest_index]);
 
     size_t index_increment = (theta / scan_msg->angle_increment) / 2; // per side
 
     size_t start = (closest_index > index_increment) ? closest_index - index_increment : 0;
     size_t end = std::min(closest_index + index_increment, ranges.size());
 
-    for (size_t i = start; i < end; ++i) {
+    for (size_t i = start; i < end; ++i)
+    {
         ranges[i] = 0;
     }
 }
@@ -362,14 +400,17 @@ std::vector<std::pair<int, int>> ObsDetectionNode::ftg_find_all_gaps(const std::
     std::vector<std::pair<int, int>> gaps;
     size_t i = 0;
 
-    while (i < ranges.size()) {
-        if (ranges[i] <= minimum_gap_threshold_) {
+    while (i < ranges.size())
+    {
+        if (ranges[i] <= minimum_gap_threshold_)
+        {
             ++i;
             continue;
         }
 
         size_t gap_start = i;
-        while (i < ranges.size() && ranges[i] > minimum_gap_threshold_) {
+        while (i < ranges.size() && ranges[i] > minimum_gap_threshold_)
+        {
             ++i;
         }
         size_t gap_end = i;
@@ -381,29 +422,33 @@ std::vector<std::pair<int, int>> ObsDetectionNode::ftg_find_all_gaps(const std::
 }
 
 std::pair<int, int> ObsDetectionNode::ftg_pick_best_gap(ConstScanMessagePtr scan_msg,
-    const std::vector<float> &ranges, const std::vector<std::pair<int, int>> &gaps)
+                                                        const std::vector<float> &ranges, const std::vector<std::pair<int, int>> &gaps)
 {
     std::pair<int, int> best_gap = {-1, -1};
     float best_score = -1.0f;
 
-    for (const auto &gap : gaps) {
+    for (const auto &gap : gaps)
+    {
         int gap_start = gap.first;
         int gap_end = gap.second;
 
         float sum = 0.0f;
-        for (int j = gap_start; j < gap_end; ++j) {
+        for (int j = gap_start; j < gap_end; ++j)
+        {
             sum += ranges[j];
         }
         float avg_depth = sum / (gap_end - gap_start);
 
         // Ensure the gap is wide enough for the car
         size_t min_width = static_cast<size_t>((car_width_ / avg_depth) / scan_msg->angle_increment);
-        if (static_cast<size_t>(gap_end - gap_start) < min_width) continue;
+        if (static_cast<size_t>(gap_end - gap_start) < min_width)
+            continue;
 
         // Score favors gaps that are both wide and deep
         float score = (gap_end - gap_start) * avg_depth;
 
-        if (score > best_score) {
+        if (score > best_score)
+        {
             best_score = score;
             best_gap = gap;
         }
@@ -414,14 +459,16 @@ std::pair<int, int> ObsDetectionNode::ftg_pick_best_gap(ConstScanMessagePtr scan
 
 int ObsDetectionNode::ftg_pick_best_point(const std::pair<int, int> &best_gap, const std::vector<float> &ranges)
 {
-    if (best_gap.first == -1 || best_gap.second == -1) {
+    if (best_gap.first == -1 || best_gap.second == -1)
+    {
         return -1;
     }
 
     // Range-weighted average index, so the point leans toward the deepest part of the gap
     double weight_sum = 0.0;
     double index_sum = 0.0;
-    for (int i = best_gap.first; i < best_gap.second; i++) {
+    for (int i = best_gap.first; i < best_gap.second; i++)
+    {
         weight_sum += ranges[i];
         index_sum += ranges[i] * i;
     }
@@ -441,10 +488,12 @@ ackermann_msgs::msg::AckermannDriveStamped ObsDetectionNode::ftg_compute_drive(C
     int best_idx = ftg_pick_best_point(best_gap, ranges);
 
     // Obstacle ahead and nowhere to go: stop rather than let the normal driver run into it
-    if (best_idx == -1) {
+    if (best_idx == -1)
+    {
         RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-            "Obstacle fallback: no valid gap found, stopping");
-        return;
+                             "Obstacle fallback: no valid gap found, stopping");
+        drive_msg.drive.speed = 0.0;
+        return drive_msg;
     }
 
     float current_angle = scan_msg->angle_min + scan_msg->angle_increment * best_idx;
@@ -461,7 +510,8 @@ ackermann_msgs::msg::AckermannDriveStamped ObsDetectionNode::ftg_compute_drive(C
     prev_angle_ = steering_angle;
 
     // Deadzone: zero out small steering angles to prevent wobble on straights
-    if (std::abs(steering_angle) < steering_deadzone_) {
+    if (std::abs(steering_angle) < steering_deadzone_)
+    {
         steering_angle = 0.0f;
     }
 
@@ -485,7 +535,6 @@ ackermann_msgs::msg::AckermannDriveStamped ObsDetectionNode::ftg_compute_drive(C
     drive_msg.drive.speed = speed;
     return drive_msg;
 }
-
 
 int main(int argc, char **argv)
 {
