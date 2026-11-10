@@ -1,4 +1,5 @@
 #include "disparity_extender_node.hpp"
+#include <cstdlib>
 using std::vector;
 
 DisparityExtenderNode::DisparityExtenderNode() : Node("disparity_extender_node")
@@ -257,6 +258,15 @@ void DisparityExtenderNode::drive_best_point(const float range, const float stee
     float steer = static_cast<float>(alpha_) * steering_angle + (1.0f - alpha_) * prev_steer_;
     prev_steer_ = steer;
     steer = std::clamp(steer, static_cast<float>(-max_steering_angle_), static_cast<float>(max_steering_angle_));
+
+    if (abs(steering_angle) > 45 * M_PI / 180) {
+      if (steering_angle >= 0) {
+        steer = max_steering_angle_;
+      } else {
+        steer = -1 * max_steering_angle_;
+      }
+    }
+
     // Limit 1: slow down for sharp turns (v = sqrt(a * R), R = wheelbase / tan(steer))
     float abs_tan = std::tan(std::abs(steer));
     float v_turn = max_speed_;
