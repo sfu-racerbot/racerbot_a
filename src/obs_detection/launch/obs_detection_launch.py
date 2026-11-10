@@ -5,72 +5,46 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    
-    obstacle_distance_arg = DeclareLaunchArgument(
-        "obstacle_distance",
-        default_value="2.0",
-        description="Maximum distance at which an obstacle is considered ahead.",
-    )
 
-    obstacle_edge_jump_arg = DeclareLaunchArgument(
-        "obstacle_edge_jump",
-        default_value="0.5",
-        description="Minimum range jump required to identify an obstacle edge.",
-    )
+    args = [
+        # obstacle detection
+        ("max_obstacle_distance", "10.0", "Range cap applied to LiDAR readings in the obstacle detector (m)."),
+        ("obstacle_edge_jump", "0.5", "Minimum range jump required to identify an obstacle edge (m)."),
+        ("car_width_extended", "0.55", "Effective vehicle width used when searching for obstacles (m)."),
+        ("fov_half_angle_deg", "135.0", "Half of the LiDAR field of view used by the detector (deg)."),
+        ("obstacle_min_target_angle_deg", "0.0", "Minimum target angle used for obstacle detection (deg)."),
+        ("obstacle_max_width", "0.8", "Maximum lateral obstacle width allowed (m)."),
+        ("obstacle_hold_frames", "8", "Frames the obstacle state (and FTG fallback) is held after last detection."),
+        # follow-the-gap fallback
+        ("max_speed", "4.5", "Maximum fallback speed (m/s)."),
+        ("min_speed", "0.5", "Minimum fallback speed (m/s)."),
+        ("max_lidar_range", "10.0", "Maximum LiDAR range considered by follow-the-gap (m)."),
+        ("ftg_fov_half_angle_deg", "70.0", "Half field-of-view used by follow-the-gap (deg)."),
+        ("car_width", "0.4", "Car width used for the safety bubble and gap width check (m)."),
+        ("minimum_gap_threshold", "1.0", "Minimum range for a point to count as part of a free gap (m)."),
+        ("safety_bubble_scale", "0.5", "Scale factor for the safety bubble size."),
+        ("prev_angle_adjuster", "0.6", "Weight of previous steering angle for smoothing."),
+        ("bubble_lookahead", "3.0", "Maximum lookahead distance for the obstacle bubble (m)."),
+        ("bubble_half_width", "0.45", "Half width of the obstacle bubble region (m)."),
+        ("wheelbase", "0.33", "Vehicle wheelbase (m)."),
+        ("lookahead_max", "1.8", "Maximum lookahead distance for target point selection (m)."),
+        ("steering_deadzone", "0.7", "Steering deadzone (deg) below which steering is zeroed."),
+    ]
 
-    car_width_extended_arg = DeclareLaunchArgument(
-        "car_width_extended",
-        default_value="0.55",
-        description="Effective vehicle width used when searching for obstacles.",
-    )
+    declarations = [
+        DeclareLaunchArgument(name, default_value=default, description=desc)
+        for name, default, desc in args
+    ]
 
-    max_lidar_range_arg = DeclareLaunchArgument(
-        "max_lidar_range",
-        default_value="10.0",
-        description="Maximum LiDAR range considered by the detector.",
+    return LaunchDescription(
+        declarations
+        + [
+            Node(
+                package="obs_detection",
+                executable="obs_detection",
+                name="obs_detection_node",
+                output="screen",
+                parameters=[{name: LaunchConfiguration(name) for name, _, _ in args}],
+            ),
+        ]
     )
-
-    fov_half_angle_deg_arg = DeclareLaunchArgument(
-        "fov_half_angle_deg",
-        default_value="135.0",
-        description="Half of the LiDAR field of view considered, in degrees.",
-    )
-
-    obstacle_min_target_angle_deg_arg = DeclareLaunchArgument(
-        "obstacle_min_target_angle_deg",
-        default_value="0.0",
-        description="Minimum target angle used for obstacle detection, in degrees.",
-    )
-
-    obstacle_max_width_arg = DeclareLaunchArgument(
-        "obstacle_max_width",
-        default_value="0.8",
-        description="Maximum lateral obstacle width allowed, in meters.",
-    )
-
-    return LaunchDescription([
-        obstacle_distance_arg,
-        obstacle_edge_jump_arg,
-        car_width_extended_arg,
-        max_lidar_range_arg,
-        fov_half_angle_deg_arg,
-        obstacle_min_target_angle_deg_arg,
-        obstacle_max_width_arg,
-        Node(
-            package="obs_detection",
-            executable="obs_detection",
-            name="obs_detection_node",
-            output="screen",
-            parameters=[{
-                "obstacle_distance": LaunchConfiguration("obstacle_distance"),
-                "obstacle_edge_jump": LaunchConfiguration("obstacle_edge_jump"),
-                "car_width_extended": LaunchConfiguration("car_width_extended"),
-                "max_lidar_range": LaunchConfiguration("max_lidar_range"),
-                "fov_half_angle_deg": LaunchConfiguration("fov_half_angle_deg"),
-                "obstacle_min_target_angle_deg": LaunchConfiguration(
-                    "obstacle_min_target_angle_deg"
-                ),
-                "obstacle_max_width": LaunchConfiguration("obstacle_max_width"),
-            }],
-        ),
-    ])
