@@ -19,10 +19,21 @@ jobs:
         with:
           path: src/racerbot_a
 
+      - name: Cache colcon build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            install
+            log
+          key: colcon-${{ runner.os }}-humble-${{ hashFiles('src/**/package.xml', 'src/**/CMakeLists.txt') }}
+          restore-keys: |
+            colcon-${{ runner.os }}-humble-
+
       - name: Build ROS 2 packages
         shell: bash
         run: |
-          sudo apt update -y && sudo apt upgrade -y
+          apt-get update -y
           source /opt/ros/humble/setup.bash
           rosdep update
           rosdep install --from-paths src --ignore-src -r -y
