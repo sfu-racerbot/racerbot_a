@@ -1,0 +1,29 @@
+name: ROS2 CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    container:
+      image: ros:humble-ros-base-jammy
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          path: src/racerbot_a
+
+      - name: Build ROS 2 packages
+        shell: bash
+        run: |
+          sudo apt update -y && sudo apt upgrade -y
+          source /opt/ros/humble/setup.bash
+          rosdep update
+          rosdep install --from-paths src --ignore-src -r -y
+          colcon build
