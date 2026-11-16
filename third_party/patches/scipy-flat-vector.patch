@@ -1,5 +1,13 @@
+diff --git a/trajectory_planning_helpers/spline_approximation.py b/trajectory_planning_helpers/spline_approximation.py
+index 11aea4d..00d396f 100644
 --- a/trajectory_planning_helpers/spline_approximation.py
 +++ b/trajectory_planning_helpers/spline_approximation.py
-@@ -146,1 +146,1 @@
+@@ -143,7 +143,7 @@ def spline_approximation(track: np.ndarray,
+ # return distance from point p to a point on the spline at spline parameter t_glob
+ def dist_to_p(t_glob: np.ndarray, path: list, p: np.ndarray):
+     s = interpolate.splev(t_glob, path)
 -    return spatial.distance.euclidean(p, s)
 +    return spatial.distance.euclidean(p, np.asarray(s).reshape(-1))
+ 
+ 
+ # testing --------------------------------------------------------------------------------------------------------------

@@ -87,9 +87,10 @@ Uses a particle filter to estimate the car's position within the map.
 ros2 launch particle_filter localize_launch.py
 ```
 
-Generate waypoints for the `track_slam` map, run from the `racerbot_a` directory. The waypoints are saved to `src/pure_pursuit_a/waypoints/track_slam_generated.csv`.
+Generate waypoints for the `track_slam` map, run from the `racerbot_a` directory. Complete the first-time setup in the [Raceline Optimizer README](../tools/raceline_optimizer/README.md) first; both steps need its virtual environment. The waypoints are saved to `src/pure_pursuit_a/waypoints/track_slam_generated.csv`.
 
 ```
+source tools/raceline_optimizer/.venv/bin/activate
 PYTHONPATH=src/waypoint_generator python -m waypoint_generator.cli \
   --map maps/track_slam.yaml --spacing 0.15 --direction ccw
 ```

@@ -19,14 +19,15 @@ git -C third_party/trajectory_planning_helpers checkout fde6cee2b7bf6dd7d0f8f3d3
 git -C third_party/trajectory_planning_helpers apply ../patches/scipy-flat-vector.patch
 ```
 
-Use Python 3.10. On Ubuntu, install prerequisites if missing:
+Use Python 3.10, or 3.12 on the car (Ubuntu 24.04 / Jazzy, where `quadprog`
+compiles from source). On Ubuntu, install prerequisites if missing:
 
 ```bash
-sudo apt-get install python3.10-venv python3.10-dev build-essential
+sudo apt-get install python3-venv python3-dev build-essential
 ```
 
 ```bash
-python3.10 -m venv tools/raceline_optimizer/.venv
+python3 -m venv tools/raceline_optimizer/.venv
 source tools/raceline_optimizer/.venv/bin/activate
 python -m pip install 'setuptools==80.9.0' 'wheel==0.45.1'
 python -m pip install -r tools/raceline_optimizer/requirements.lock.txt
