@@ -13,7 +13,7 @@ def generate_launch_description():
 
     message_timeout_duration = DeclareLaunchArgument(
         "message_timeout_duration",
-        default_value="50.0",
+        default_value="300.0",
         description="How many milliseconds the node should wait for a /joy message before it assumes that no /joy is connected",
     )
 
