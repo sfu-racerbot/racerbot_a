@@ -16,7 +16,7 @@ SafetyNode::SafetyNode() : rclcpp::Node("safety_node")
       "/scan", 1, std::bind(&SafetyNode::scan_callback, this, std::placeholders::_1));
 
   this->declare_parameter("deadman_button", 4);
-  this->declare_parameter("message_timeout_duration", 50.0);
+  this->declare_parameter("message_timeout_duration", 300.0);
   this->declare_parameter("ttc_threshold", 0.3);
   this->declare_parameter("enable_ttc", true);
   this->declare_parameter("max_ttc_angle_deg", 90.0);
