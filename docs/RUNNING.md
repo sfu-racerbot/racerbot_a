@@ -87,41 +87,78 @@ Uses a particle filter to estimate the car's position within the map.
 ros2 launch particle_filter localize_launch.py
 ```
 
-Generate waypoints for the `track_slam` map, run from the `racerbot_a` directory. Complete the first-time setup in the [Raceline Optimizer README](../tools/raceline_optimizer/README.md) first; both steps need its virtual environment. The waypoints are saved to `src/pure_pursuit_a/waypoints/track_slam_generated.csv`.
+Save a new SLAM map
 
 ```
+ros2 run nav2_map_server map_saver_cli \
+  -t /slam_map \
+  -f ~/racerbot-ws/src/racerbot_a/maps/<track name> \
+  --ros-args -p map_subscribe_transient_local:=true
+```
+
+This setup assumes that the map being used (.yaml and .png/.pgm files) are both in racerbot_a/maps. Otherwise, move these files.
+
+Check where the map is saved:
+
+```
+find ~ -n "<map name>.yaml" 2>/dev/null
+```
+
+Move files to the correct folder, moving both the .yaml and .png/.pgm files.
+
+```
+mv ~/path/to/map/<map name>.yaml ~/path/to/map/<map name>.pgm ~racerbot-ws/src/racerbot_a/maps/
+```
+
+Generate waypoints for the `track_slam` map, run from the `racerbot_a` directory.
+
+For First-time setup in the [Raceline Optimizer README](../tools/raceline_optimizer/README.md) first to create the virtual environment and clone repositories.
+
+Otherwise, if venv is setup, and repositories are cloned, create waypoints for the map.
+
+```
+cd ~/racerbot-ws/src/racerbot_a
 source tools/raceline_optimizer/.venv/bin/activate
 PYTHONPATH=src/waypoint_generator python -m waypoint_generator.cli \
-  --map maps/track_slam.yaml --spacing 0.15 --direction ccw
+  --map maps/<map name>.yaml --spacing 0.15 --direction ccw --overwrite
 ```
 
-Optimize the generated waypoints into a minimum-curvature racing line. Complete the first-time setup in the [Raceline Optimizer README](../tools/raceline_optimizer/README.md) first (cloning the third-party repositories and creating its virtual environment). The optimized waypoints are saved to `src/pure_pursuit_a/waypoints/track_slam_Optimized/track_slam_optimized.csv`.
+Optimize the generated waypoints into a minimum-curvature racing line. The optimized waypoints are saved to `src/pure_pursuit_a/waypoints/track_slam_Optimized/<map name>optimized.csv`.
 
 ```
 source tools/raceline_optimizer/.venv/bin/activate
 python tools/raceline_optimizer/optimize.py \
   --map maps/track_slam.yaml \
   --centerline src/pure_pursuit_a/waypoints/track_slam_generated.csv \
-  --config tools/raceline_optimizer/config.ini
+  --config tools/raceline_optimizer/config.ini \
+   --overwrite
+```
+
+After making waypoints, deactive the venv.
+
+```
+deactivate
 ```
 
 Rebuild Pure Pursuit so the new waypoint files are installed, run from the workspace root.
 
 ```
+cd ~/racerbot-ws
+source /opt/ros/jazzy/setup.bash
 colcon build --packages-select pure_pursuit_a
 source install/setup.bash
 ```
 
-Uses the Pure Pursuit algorithm to follow the racing line on the track_slam map using the generated waypoints.
+Uses the Pure Pursuit algorithm to follow the centreline on the map using the generated waypoints.
 
 ```
-ros2 launch pure_pursuit_a pure_pursuit_a_launch.py track:=track_slam_generated
+ros2 launch pure_pursuit_a pure_pursuit_a_launch.py track:=<map name>_generated
 ```
 
 Run Pure Pursuit on the optimized racing line for the track_slam map. Test at low speed first.
 
 ```
-ros2 launch pure_pursuit_a pure_pursuit_a_launch.py track:=track_slam_Optimized/track_slam_optimized
+ros2 launch pure_pursuit_a pure_pursuit_a_launch.py track:=<track name>_Optimized/<track name>optimized
 ```
 
 ### Dashboard
